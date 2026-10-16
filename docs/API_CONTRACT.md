@@ -93,7 +93,10 @@ BlAchatResponse = {
 - `GET /ventes/{id}` -> `VenteResponse`.
 - `PUT /ventes/{id}` `CreateVenteRequest` -> `VenteResponse` (full replace: reverse all draws, redraw fresh).
 - `DELETE /ventes/{id}` -> `204` (physical delete, draws reversed).
-- `GET /ventes/export/excel` same filters as list -> `.xlsx` blob, `Content-Disposition: attachment`.
+
+No per-resource export endpoint (the old `/bl-achats/export/excel` and
+`/ventes/export/excel` were never called by the deployed frontend — only the
+combined one below is). The ventes domain does not own any export route.
 
 ```ts
 CreateVenteRequest = {
