@@ -1,6 +1,7 @@
 "use client";
+import Image from "next/image";
 
-import { LogOut, User, Wrench, Menu, KeyRound } from "lucide-react";
+import { LogOut, User, Menu, KeyRound } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useQueryClient } from "@tanstack/react-query";
@@ -59,9 +60,15 @@ export default function TopNavigation({
           <Menu size={20} />
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-gray-900 flex items-center justify-center flex-shrink-0">
-            <Wrench size={16} className="text-white" />
-          </div>
+          <Image
+            src="/logo-sia.jpg"
+            alt="Logo SIA"
+            width={447}
+            height={437}
+            priority
+            sizes="40px"
+            className="h-10 w-10 flex-shrink-0 object-contain"
+          />
           <span className="hidden lg:inline text-sm font-semibold text-gray-800">
             APMS — Gestion Pièces Véhicules
           </span>

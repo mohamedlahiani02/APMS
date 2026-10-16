@@ -25,3 +25,7 @@ The combined Excel download contains BL Achats and Ventes sheets, both filtered 
 ## Accounts and history
 
 New and reset accounts require a password change. Role and account activity are checked on authenticated requests. Administrator-only resources are protected at the API and in navigation. Every mutation and authentication event writes an audit record. The historical duplicate reference 01381 is preserved; no production rows are renamed or merged automatically.
+
+## Verified reporting corrections
+
+Migration 2 fixes reproduced defects in the inherited SQL: a legacy opening balance must add back all covered draws before monthly cumulative sales are subtracted, otherwise sales are deducted twice. Snapshot rebuilds and API stock mutations share a transaction lock. Header-only transaction edits and product family reassignments also invalidate derived snapshots. The existing CMUP definition and TTC sales-minus-purchases reporting convention remain in place. See QA_LOAD.md for independent numerical examples and limits.

@@ -35,3 +35,7 @@ Les sélecteurs disposent de recherche, flèches, Entrée, Échap, effacement et
 Les tests backend vérifient notamment la correspondance liste/export, les filtres combinés, la comparaison des KPI et leurs détails. Les tests d’interface isolés couvrent pagination, tri numérique, dates rapides, menus au clavier, erreur/retry et protection des saisies.
 
 L’accès au navigateur local a été refusé par le réglage de permission enregistré. Aucune inspection visuelle réelle n’est revendiquée. La recette visuelle reste à effectuer sur http://127.0.0.1:3100 : fenêtres étroites et larges, deux rôles, longs libellés, nombreux produits, menus en bas de fenêtre, modales et téléchargement Excel.
+
+## Complément audit et identité SIA
+
+Le journal permet une date précise « Le… », une plage « Du… au… », ou une semaine calendaire du lundi au dimanche. Raccourcis : aujourd’hui, hier, cette semaine, semaine précédente et ce mois. Les filtres de date, action, entité, auteur et recherche restent cumulables. Effacer les dates conserve les autres critères ; Réinitialiser efface l’ensemble. Les limites d’un jour et de la date finale sont inclusives, à l’heure de Tunis. Le logo SIA fourni remplace l’icône générique du bandeau sans déformation.

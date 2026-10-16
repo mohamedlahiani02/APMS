@@ -537,6 +537,83 @@ describe("complete HTTP application", () => {
         ),
     ).toBe(true);
   });
+  it("does not deduct covered legacy sales twice in monthly analytics", async () => {
+    const lot = await prisma.stock_legacy_lots.upsert({
+      where: {
+        produit_id_magasin_id: {
+          produit_id: produitId!,
+          magasin_id: magasinId!,
+        },
+      },
+      create: {
+        produit_id: produitId!,
+        magasin_id: magasinId!,
+        qte_disponible: 10,
+        cout_unitaire: 3,
+      },
+      update: { qte_disponible: 10, cout_unitaire: 3 },
+    });
+    let saleId: string | undefined;
+    try {
+      const response = await request("POST", "/ventes", {
+        venteDate: today,
+        magasinId,
+        lignes: [{ produitId, qteVendue: 14, prixVenteTtc: 5 }],
+      });
+      expect(response.statusCode, response.body).toBe(201);
+      saleId = response.json<VenteResponse>().id;
+      venteIds.push(saleId);
+      const period =
+        "?year=" +
+        Number(today.slice(0, 4)) +
+        "&month=" +
+        Number(today.slice(5, 7));
+      const details = await request(
+        "GET",
+        "/analytics/drilldown/familles/" + familleId + period,
+      );
+      expect(details.statusCode, details.body).toBe(200);
+      const legacy = details
+        .json()
+        .items.find(
+          (row: { produitId: string; fournisseurId: string }) =>
+            row.produitId === produitId &&
+            row.fournisseurId === "00000000-0000-0000-0000-000000000001",
+        );
+      expect(legacy).toMatchObject({
+        qteStock: 6,
+        totalValeur: 18,
+        qteDeficit: 0,
+      });
+    } finally {
+      if (saleId) await request("DELETE", "/ventes/" + saleId);
+      await prisma.stock_legacy_lots.update({
+        where: { id: lot.id },
+        data: { qte_disponible: 0, cout_unitaire: 0 },
+      });
+      await prisma.analytics_snapshot_state.updateMany({
+        data: { statut: "A_RECALCULER" },
+      });
+    }
+  });
+  it("rebuilds an invalid month safely for twenty concurrent dashboard requests", async () => {
+    await prisma.analytics_snapshot_state.updateMany({
+      data: { statut: "A_RECALCULER" },
+    });
+    const route =
+      "/analytics/dashboard?year=" +
+      Number(today.slice(0, 4)) +
+      "&month=" +
+      Number(today.slice(5, 7));
+    const results = await Promise.all(
+      Array.from({ length: 20 }, () => request("GET", route)),
+    );
+    for (const response of results)
+      expect(response.statusCode, response.body).toBe(200);
+    expect(results.map((r) => r.json().totals)).toEqual(
+      Array.from({ length: 20 }, () => results[0]!.json().totals),
+    );
+  });
   it("returns the analytics fields consumed by the UI and rejects impossible dates", async () => {
     const year = Number(today.slice(0, 4)),
       month = Number(today.slice(5, 7));

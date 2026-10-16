@@ -13,7 +13,9 @@ import {
   ClientTable,
   useTableState,
 } from "@/components/shared/DataTable";
-import DateRange from "@/components/shared/DateRange";
+import AuditDateFilter, {
+  type AuditDateMode,
+} from "@/components/shared/AuditDateFilter";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -105,6 +107,7 @@ function History({ entry }: { entry: AuditEntry }) {
 }
 export default function AuditPage() {
   const table = useTableState("timestamp", "desc");
+  const [dateMode, setDateMode] = useState<AuditDateMode>("range");
   const [entityType, setEntityType] = useState(""),
     [actorId, setActorId] = useState(""),
     [action, setAction] = useState(""),
@@ -216,7 +219,9 @@ export default function AuditPage() {
         />
       </div>
       <div className="flex flex-wrap items-end gap-3">
-        <DateRange
+        <AuditDateFilter
+          mode={dateMode}
+          onModeChange={setDateMode}
           from={dateFrom}
           to={dateTo}
           onChange={(a, b) => {
@@ -231,6 +236,7 @@ export default function AuditPage() {
             setEntityType("");
             setActorId("");
             setAction("");
+            setDateMode("range");
             setDateFrom("");
             setDateTo("");
             setTerm("");
