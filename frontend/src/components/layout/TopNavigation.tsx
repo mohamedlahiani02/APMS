@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import { InstallAppButton } from "@/components/pwa/PwaProvider";
 
 import { LogOut, User, Menu, KeyRound } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
@@ -77,6 +78,7 @@ export default function TopNavigation({
         <span className="truncate text-sm text-gray-500">{pageTitle}</span>
       </div>
       <div className="flex flex-shrink-0 items-center gap-2 sm:gap-4">
+        <InstallAppButton />
         <div className="hidden xl:flex items-center gap-2 text-sm text-gray-700">
           <div className="bg-gray-100 rounded-full p-1.5">
             <User size={14} className="text-gray-600" />

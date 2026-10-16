@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { LogIn, Wrench } from 'lucide-react';
+import { InstallAppButton } from '@/components/pwa/PwaProvider';
 import { loginSchema, LoginInput } from '@/lib/validations';
 import { login as loginRequest } from '@/features/auth/services/authService';
 import { useAuthStore } from '@/store/authStore';
@@ -86,6 +87,7 @@ export default function LoginPage() {
             Se connecter
           </Button>
         </form>
+        <div className="mt-4 flex justify-center"><InstallAppButton /></div>
       </div>
     </div>
   );
