@@ -55,7 +55,8 @@ apiClient.interceptors.response.use(
     } catch (refreshError) {
       useAuthStore.getState().clear();
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        // A full navigation also clears cached data from the expired session.
+        window.location.href = new URL('/login', window.location.origin).href;
       }
       return Promise.reject(refreshError);
     }

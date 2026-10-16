@@ -20,11 +20,18 @@ jobs:
         working-directory: backend
       - run: npm run prisma:generate
         working-directory: backend
-      - run: npm run lint && npm run build
+      - run: npm run lint && npm run test:unit && npm run build
         working-directory: backend
       - run: npm ci
         working-directory: frontend
       - run: npm run lint && npm test && npm run build
         working-directory: frontend
+      - name: Build the unified Plesk frontend
+        run: npm run build
+        working-directory: frontend
+        env:
+          APMS_SERVER_MODE: unified
+      - name: Verify shared deployment startup without customer data
+        run: npm run check:startup && npm run smoke:deploy
       # Full integration tests require the restored local dataset. A sensitive
       # production dump must never be uploaded to this public repository/CI.

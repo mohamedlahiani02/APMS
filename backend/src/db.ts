@@ -1,8 +1,12 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import pg from "pg";
 import { config } from "./config.js";
+import { databaseSettings } from "./database-settings.js";
+
+const settings = databaseSettings(config);
 
 export const prisma = new PrismaClient({
+  datasources: { db: { url: settings.prismaUrl } },
   log: config.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
 });
 
@@ -12,7 +16,7 @@ export const prisma = new PrismaClient({
  * stored functions/procedures. Mirrors the Java backend's split between JPA
  * (simple CRUD) and native queries (everything transactional or DB-resident).
  */
-export const pool = new pg.Pool({ connectionString: config.DATABASE_URL });
+export const pool = new pg.Pool(settings.pgOptions);
 
 export async function closeDb(): Promise<void> {
   await prisma.$disconnect();

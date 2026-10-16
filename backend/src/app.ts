@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import { config } from "./config.js";
@@ -15,8 +15,12 @@ import { authPlugin } from "./plugins/auth.js";
  * Domain routes are assembled in application.ts; this factory remains usable
  * for individual route tests.
  */
-export async function buildApp(): Promise<FastifyInstance> {
+export type AppOptions = Pick<FastifyServerOptions, "serverFactory">;
+
+export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
   const app = Fastify({
+    serverFactory: options.serverFactory,
+    trustProxy: config.TRUST_PROXY ? config.TRUST_PROXY.split(",").map((value) => value.trim()).filter(Boolean) : false,
     logger: {
       level: config.NODE_ENV === "development" ? "info" : "warn",
       ...(config.NODE_ENV === "development"
@@ -26,7 +30,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   await app.register(cors, {
-    origin: true,
+    origin: config.NODE_ENV === "production"
+      ? (config.CORS_ORIGINS ? config.CORS_ORIGINS.split(",").map((value) => new URL(value.trim()).origin) : false)
+      : true,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Authorization", "Content-Type", "X-Trace-Id"],
