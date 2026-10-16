@@ -30,8 +30,8 @@ describe('PwaProvider and InstallAppButton', () => {
     });
   });
 
-  it('does not display install button by default when not promptable and not iOS', () => {
-    render(
+  it('displays install button by default in browser and hides it in standalone mode', async () => {
+    const { unmount } = render(
       <PwaProvider>
         <InstallAppButton />
         <div>App Content</div>
@@ -39,10 +39,38 @@ describe('PwaProvider and InstallAppButton', () => {
     );
 
     expect(screen.getByText('App Content')).toBeDefined();
+    expect(screen.getByLabelText('Installer APMS')).toBeDefined();
+    unmount();
+
+    // Mock standalone display mode
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: query.includes('display-mode: standalone'),
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+
+    render(
+      <PwaProvider>
+        <InstallAppButton />
+      </PwaProvider>
+    );
+
+    await act(async () => {
+      await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
+    });
+
     expect(screen.queryByLabelText('Installer APMS')).toBeNull();
   });
 
-  it('displays install button when beforeinstallprompt event is fired and handles install prompt', async () => {
+  it('handles native beforeinstallprompt when available', async () => {
     const user = userEvent.setup();
     render(
       <PwaProvider>
@@ -61,10 +89,25 @@ describe('PwaProvider and InstallAppButton', () => {
     });
 
     const installBtn = screen.getByLabelText('Installer APMS');
-    expect(installBtn).toBeDefined();
-
     await user.click(installBtn);
     expect(promptMock).toHaveBeenCalledOnce();
+  });
+
+  it('displays browser install instructions when clicked without native prompt', async () => {
+    const user = userEvent.setup();
+    render(
+      <PwaProvider>
+        <InstallAppButton />
+      </PwaProvider>
+    );
+
+    const installBtn = screen.getByLabelText('Installer APMS');
+    await user.click(installBtn);
+
+    expect(screen.getByText(/Dans votre navigateur/)).toBeDefined();
+
+    await user.click(screen.getByLabelText('Fermer'));
+    expect(screen.queryByText(/Dans votre navigateur/)).toBeNull();
   });
 
   it('displays iOS help instructions when running on iOS and install button is clicked', async () => {
@@ -90,13 +133,11 @@ describe('PwaProvider and InstallAppButton', () => {
     });
 
     const installBtn = screen.getByLabelText('Installer APMS');
-    expect(installBtn).toBeDefined();
-
     await user.click(installBtn);
-    expect(screen.getByText(/Dans Safari, ouvrez le menu Partager/)).toBeDefined();
+    expect(screen.getByText(/Dans Safari sur iPhone\/iPad/)).toBeDefined();
 
-    await user.click(screen.getByRole('button', { name: 'Fermer' }));
-    expect(screen.queryByText(/Dans Safari, ouvrez le menu Partager/)).toBeNull();
+    await user.click(screen.getByLabelText('Fermer'));
+    expect(screen.queryByText(/Dans Safari sur iPhone\/iPad/)).toBeNull();
   });
 
   it('displays offline warning banner when network is lost', async () => {
