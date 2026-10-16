@@ -1,6 +1,6 @@
 // API response types. Keep these aligned with docs/API_CONTRACT.md and backend mappers.
 
-export type Role = 'ADMIN' | 'SECRETAIRE';
+export type Role = "ADMIN" | "SECRETAIRE";
 
 export interface User {
   id: string;
@@ -24,7 +24,7 @@ export interface AuthSession {
   refreshToken: string;
   user: Pick<
     User,
-    'id' | 'email' | 'firstName' | 'lastName' | 'role' | 'mustChangePassword'
+    "id" | "email" | "firstName" | "lastName" | "role" | "mustChangePassword"
   >;
 }
 
@@ -197,7 +197,7 @@ export interface VenteLigne {
   produitId: string;
   produitReference: string;
   produitDesignation: string;
-  sourceType: 'BL_LIGNE' | 'STOCK_LEGACY';
+  sourceType: "BL_LIGNE" | "STOCK_LEGACY";
   qteVendue: number;
   prixVenteTtc: number;
   prixVenteTotalTtc: number;
@@ -264,6 +264,14 @@ export interface MagasinKpi {
   nbTx: number;
 }
 export interface DashboardKpiResponse {
+  previousPeriod: {
+    year: number;
+    month: number;
+    totalAchat: number;
+    totalVente: number;
+    totalValeur: number;
+    marge: number;
+  } | null;
   year: number;
   month: number;
   totals: GlobalKpi;
@@ -322,7 +330,7 @@ export interface DrilldownStockItem {
   nbTx: number;
 }
 export interface DrilldownResponse {
-  dimension: 'familles' | 'fournisseurs' | 'magasins';
+  dimension: "familles" | "fournisseurs" | "magasins";
   id: string;
   nom: string;
   year: number;

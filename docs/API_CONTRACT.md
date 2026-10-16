@@ -142,3 +142,23 @@ Future periods return 400. See backend/src/analytics/service.ts for precise inte
 
 Combined workbook, two tabs (BL achats, Ventes), same filters as the two list
 endpoints combined (`magasinId`, `dateFrom`, `dateTo`). `.xlsx` blob.
+
+## UI list/filter extensions
+
+List endpoints accept optional sortBy and sortDirection=asc|desc; unsupported sort keys fall back to the resource default, never to raw SQL. Ties are stable by ID (stock uses product/store IDs). API default size remains 20 for compatibility; the UI explicitly requests 10, 20 or 50.
+
+| Resource | Additional filters | Sort keys |
+| --- | --- | --- |
+| familles, fournisseurs, magasins | isActive=true/false | code, nom |
+| produits | isActive=true/false, familleId | reference, designation |
+| users | role=ADMIN/SECRETAIRE, isActive=true/false | email, firstName, role, createdAt, lastLoginAt |
+| bl-achats | consumed=yes/no (any non-deleted line drawn / no line drawn) | date, blNumero |
+| ventes | hasDepassement=true/false | date |
+| stock | familleId, availability=positive/zero (existing lot-backed pairs) | reference, designation, magasin, qteDisponible, valeur |
+| audit | action, search (summary), dateFrom, dateTo, existing entityType/actorId | timestamp, action, actorEmail, entityType |
+
+dateFrom/dateTo are inclusive valid YYYY-MM-DD calendar dates and must be ordered. Audit dates use Africa/Tunis midnight boundaries.
+
+GET /analytics/dashboard and GET /analytics/drilldown/{dimension}/{id} also accept magasinId, familleId, fournisseurId. All filters intersect. Dashboard adds previousPeriod: {year, month, totalAchat, totalVente, totalValeur, marge} or null at the earliest supported period. It uses the same scope as current totals. Existing API marge fields retain their computation (sales TTC minus purchases TTC); the UI names this an écart, not net profit.
+
+GET /transactions/export/excel accepts optional type=achats|ventes, search, fournisseurId, consumed, hasDepassement, magasinId, dateFrom, dateTo. Omitted type keeps both sheets. A specified type keeps only that resource; its filters match the corresponding list across all pages. Without any filters it exports both complete resources. Supplier/consumption filters apply to purchases; oversell applies to sales.

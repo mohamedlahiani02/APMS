@@ -1,7 +1,8 @@
+import { dateRangeIsOrdered, dateRangeError } from "../common/date-schema.js";
 import { z } from "zod";
 import { pageQuerySchema } from "../common/pagination.js";
 
-import { isoDateSchema } from '../common/date-schema.js';
+import { isoDateSchema } from "../common/date-schema.js";
 export { isoDateSchema };
 
 export const venteLigneInputSchema = z.object({
@@ -17,11 +18,17 @@ export const createVenteSchema = z.object({
 });
 export type CreateVenteInput = z.infer<typeof createVenteSchema>;
 
-export const listVentesQuerySchema = pageQuerySchema.extend({
-  magasinId: z.string().uuid().optional(),
-  dateFrom: isoDateSchema.optional(),
-  dateTo: isoDateSchema.optional(),
-});
+export const listVentesQuerySchema = pageQuerySchema
+  .extend({
+    hasDepassement: z
+      .enum(["true", "false"])
+      .transform((v) => v === "true")
+      .optional(),
+    magasinId: z.string().uuid().optional(),
+    dateFrom: isoDateSchema.optional(),
+    dateTo: isoDateSchema.optional(),
+  })
+  .refine(dateRangeIsOrdered, dateRangeError);
 export type ListVentesQuery = z.infer<typeof listVentesQuerySchema>;
 
 export const idParamSchema = z.object({ id: z.string().uuid() });

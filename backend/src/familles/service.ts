@@ -1,7 +1,11 @@
+import { listOrder } from "../common/list-filters.js";
 import type { familles as FamilleRow } from "@prisma/client";
 import { prisma, Prisma } from "../db.js";
 import { audit } from "../common/audit.js";
-import { familleHasProduits, ResourceNotFoundException } from "../common/errors.js";
+import {
+  familleHasProduits,
+  ResourceNotFoundException,
+} from "../common/errors.js";
 import { toPagedResponse, type LookupQuery } from "../common/pagination.js";
 import type { CurrentUser } from "../common/current-user.js";
 import type {
@@ -36,11 +40,15 @@ function searchWhere(search: string | undefined) {
 }
 
 export async function listFamilles(query: FamilleListQuery) {
-  const where = { deleted_at: null, ...searchWhere(query.search) };
+  const where = {
+    deleted_at: null,
+    ...searchWhere(query.search),
+    ...(query.isActive !== undefined ? { is_active: query.isActive } : {}),
+  };
   const [rows, total] = await Promise.all([
     prisma.familles.findMany({
       where,
-      orderBy: { code: "asc" },
+      orderBy: listOrder(query, { code: "code", nom: "nom" }, "code"),
       skip: query.page * query.size,
       take: query.size,
     }),
@@ -49,7 +57,9 @@ export async function listFamilles(query: FamilleListQuery) {
   return toPagedResponse(rows.map(toResponse), total, query);
 }
 
-export async function lookupFamilles(query: LookupQuery): Promise<FamilleLookupItem[]> {
+export async function lookupFamilles(
+  query: LookupQuery,
+): Promise<FamilleLookupItem[]> {
   const where = { deleted_at: null, ...searchWhere(query.q) };
   const rows = await prisma.familles.findMany({
     where,
@@ -112,7 +122,10 @@ export async function updateFamilleTx(
   if (data.nom !== undefined && data.nom !== current.nom) {
     changes.nom = { from: current.nom, to: data.nom };
   }
-  if (data.description !== undefined && data.description !== current.description) {
+  if (
+    data.description !== undefined &&
+    data.description !== current.description
+  ) {
     changes.description = { from: current.description, to: data.description };
   }
   if (data.isActive !== undefined && data.isActive !== current.is_active) {
@@ -151,10 +164,16 @@ export async function updateFamille(
   return prisma.$transaction((tx) => updateFamilleTx(tx, id, data, actor));
 }
 
-export async function deleteFamilleTx(tx: Db, id: string, actor: CurrentUser | null): Promise<void> {
+export async function deleteFamilleTx(
+  tx: Db,
+  id: string,
+  actor: CurrentUser | null,
+): Promise<void> {
   const current = await findActiveOrThrow(tx, id);
 
-  const produitsCount = await tx.produits.count({ where: { famille_id: id, deleted_at: null } });
+  const produitsCount = await tx.produits.count({
+    where: { famille_id: id, deleted_at: null },
+  });
   if (produitsCount > 0) throw familleHasProduits(id);
 
   await tx.familles.update({
@@ -170,6 +189,9 @@ export async function deleteFamilleTx(tx: Db, id: string, actor: CurrentUser | n
   });
 }
 
-export async function deleteFamille(id: string, actor: CurrentUser | null): Promise<void> {
+export async function deleteFamille(
+  id: string,
+  actor: CurrentUser | null,
+): Promise<void> {
   return prisma.$transaction((tx) => deleteFamilleTx(tx, id, actor));
 }

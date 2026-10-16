@@ -1,6 +1,10 @@
 import type { FastifyPluginAsync } from "fastify";
-import { pageQuerySchema } from "../common/pagination.js";
-import { createUserSchema, updateUserSchema, userIdParamsSchema } from "./schemas.js";
+import { userListQuerySchema } from "./schemas.js";
+import {
+  createUserSchema,
+  updateUserSchema,
+  userIdParamsSchema,
+} from "./schemas.js";
 import * as usersService from "./service.js";
 
 /**
@@ -13,7 +17,7 @@ export const registerUserRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("preHandler", app.requireRole("ADMIN"));
 
   app.get("/users", async (request, reply) => {
-    const query = pageQuerySchema.parse(request.query);
+    const query = userListQuerySchema.parse(request.query);
     const result = await usersService.listUsers(query);
     return reply.status(200).send(result);
   });

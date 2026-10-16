@@ -1,3 +1,4 @@
+import ExcelJS from "exceljs";
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcrypt";
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
@@ -324,6 +325,217 @@ describe("complete HTTP application", () => {
       expect((await request("DELETE", "/ventes/" + sale.id)).statusCode).toBe(
         204,
       );
+  });
+  it("combines list filters with identical export scope and current-stock availability", async () => {
+    const purchaseId = blIds[blIds.length - 1];
+    const stockFilter = "?magasinId=" + magasinId + "&familleId=" + familleId;
+    const positive = await request(
+      "GET",
+      "/stock" + stockFilter + "&availability=positive",
+    );
+    expect(positive.statusCode, positive.body).toBe(200);
+    expect(positive.json().content).toHaveLength(1);
+    expect(positive.json().content[0].qteDisponible).toBe(10);
+    expect(
+      (
+        await request("GET", "/stock" + stockFilter + "&availability=zero")
+      ).json().content,
+    ).toHaveLength(0);
+    const filters =
+      "?magasinId=" + magasinId + "&fournisseurId=" + fournisseurId;
+    expect(
+      (await request("GET", "/bl-achats" + filters + "&consumed=no"))
+        .json()
+        .content.map((r: { id: string }) => r.id),
+    ).toContain(purchaseId);
+    expect(
+      (await request("GET", "/bl-achats" + filters + "&consumed=yes")).json()
+        .content,
+    ).toHaveLength(0);
+    const sale = await request("POST", "/ventes", {
+      venteDate: today,
+      magasinId,
+      lignes: [{ produitId, qteVendue: 12, prixVenteTtc: 2 }],
+    });
+    expect(sale.statusCode, sale.body).toBe(201);
+    const vente = sale.json<VenteResponse>();
+    venteIds.push(vente.id);
+    const saleFilters =
+      "?magasinId=" +
+      magasinId +
+      "&dateFrom=" +
+      today +
+      "&dateTo=" +
+      today +
+      "&search=HTTP-&hasDepassement=true";
+    const matching = await request("GET", "/ventes" + saleFilters);
+    expect(matching.statusCode, matching.body).toBe(200);
+    expect(matching.json().content.map((r: { id: string }) => r.id)).toEqual([
+      vente.id,
+    ]);
+    expect(
+      (
+        await request("GET", "/ventes" + saleFilters.replace("true", "false"))
+      ).json().content,
+    ).toHaveLength(0);
+    expect(
+      (await request("GET", "/bl-achats" + filters + "&consumed=yes"))
+        .json()
+        .content.map((r: { id: string }) => r.id),
+    ).toContain(purchaseId);
+    const exported = await request(
+      "GET",
+      "/transactions/export/excel" + saleFilters + "&type=ventes",
+    );
+    expect(exported.statusCode).toBe(200);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(exported.rawPayload as never);
+    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(["Ventes"]);
+    const sheet = workbook.worksheets[0]!;
+    let sum = 0;
+    sheet.eachRow((row, index) => {
+      if (index > 1) sum += Number(row.getCell(6).value);
+    });
+    expect(sum).toBe(vente.totalTtc);
+    expect(sheet.rowCount).toBe(vente.lignes.length + 1);
+    const empty = await request(
+      "GET",
+      "/transactions/export/excel" +
+        saleFilters.replace("search=HTTP-", "search=does-not-exist-" + run) +
+        "&type=ventes",
+    );
+    const emptyBook = new ExcelJS.Workbook();
+    await emptyBook.xlsx.load(empty.rawPayload as never);
+    expect(emptyBook.worksheets[0]!.rowCount).toBe(1);
+    expect(
+      (
+        await request("GET", "/stock" + stockFilter + "&availability=zero")
+      ).json().content[0].qteDisponible,
+    ).toBe(0);
+    expect((await request("DELETE", "/ventes/" + vente.id)).statusCode).toBe(
+      204,
+    );
+  });
+  it("filters accounts, active references and audit actions and rejects inverted ranges", async () => {
+    const activeStaff = await request(
+      "GET",
+      "/users?role=SECRETAIRE&isActive=true&sortBy=email&sortDirection=asc&size=50",
+    );
+    expect(activeStaff.statusCode, activeStaff.body).toBe(200);
+    expect(
+      activeStaff
+        .json()
+        .content.every(
+          (r: { role: string; isActive: boolean }) =>
+            r.role === "SECRETAIRE" && r.isActive,
+        ),
+    ).toBe(true);
+    const emails = activeStaff
+      .json()
+      .content.map((r: { email: string }) => r.email);
+    expect(emails).toEqual([...emails].sort());
+    await request("PUT", "/produits/" + produitId, { isActive: false });
+    expect(
+      (
+        await request(
+          "GET",
+          "/produits?familleId=" + familleId + "&isActive=false",
+        )
+      )
+        .json()
+        .content.map((r: { id: string }) => r.id),
+    ).toEqual([produitId]);
+    expect(
+      (
+        await request(
+          "GET",
+          "/produits?familleId=" + familleId + "&isActive=true",
+        )
+      ).json().content,
+    ).toHaveLength(0);
+    await request("PUT", "/produits/" + produitId, { isActive: true });
+    const audit = await request(
+      "GET",
+      "/audit?actorId=" +
+        admin.user.id +
+        "&action=UPDATE&dateFrom=" +
+        today +
+        "&dateTo=" +
+        today,
+    );
+    expect(audit.statusCode, audit.body).toBe(200);
+    expect(audit.json().content.length).toBeGreaterThan(0);
+    expect(
+      audit
+        .json()
+        .content.every((r: { action: string }) => r.action === "UPDATE"),
+    ).toBe(true);
+    for (const resource of [
+      "/bl-achats",
+      "/ventes",
+      "/audit",
+      "/transactions/export/excel",
+    ]) {
+      const invalid = await request(
+        "GET",
+        resource + "?dateFrom=2026-10-10&dateTo=2026-10-01",
+      );
+      expect(invalid.statusCode, resource + invalid.body).toBe(400);
+      expect(
+        (await request("GET", resource + "?dateFrom=2026-02-31")).statusCode,
+      ).toBe(400);
+    }
+  });
+  it("applies KPI scope to totals, previous month and drilldown together", async () => {
+    const period =
+      "?year=" +
+      Number(today.slice(0, 4)) +
+      "&month=" +
+      Number(today.slice(5, 7));
+    const scope =
+      "&magasinId=" +
+      magasinId +
+      "&familleId=" +
+      familleId +
+      "&fournisseurId=" +
+      fournisseurId;
+    const response = await request(
+      "GET",
+      "/analytics/dashboard" + period + scope,
+    );
+    expect(response.statusCode, response.body).toBe(200);
+    const dashboard = response.json();
+    expect(dashboard.totals.totalAchat).toBeCloseTo(11.9, 2);
+    expect(dashboard.totals.totalVente).toBe(0);
+    expect(
+      dashboard.parFamille.map((r: { familleId: string }) => r.familleId),
+    ).toEqual([familleId]);
+    expect(
+      dashboard.parMagasin.map((r: { magasinId: string }) => r.magasinId),
+    ).toEqual([magasinId]);
+    expect(
+      dashboard.parFournisseur.map(
+        (r: { fournisseurId: string }) => r.fournisseurId,
+      ),
+    ).toEqual([fournisseurId]);
+    expect(dashboard.previousPeriod.totalAchat).toBe(0);
+    expect(dashboard.previousPeriod.totalValeur).toBe(0);
+    const drilldown = await request(
+      "GET",
+      "/analytics/drilldown/fournisseurs/" + fournisseurId + period + scope,
+    );
+    expect(drilldown.statusCode, drilldown.body).toBe(200);
+    expect(drilldown.json().totals.totalValeur).toBe(
+      dashboard.totals.totalValeur,
+    );
+    expect(
+      drilldown
+        .json()
+        .items.every(
+          (r: { produitId: string; magasinId: string }) =>
+            r.produitId === produitId && r.magasinId === magasinId,
+        ),
+    ).toBe(true);
   });
   it("returns the analytics fields consumed by the UI and rejects impossible dates", async () => {
     const year = Number(today.slice(0, 4)),

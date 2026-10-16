@@ -41,12 +41,26 @@ export interface LegacyLotLookupItem {
  * a recomputed CMUP (the task explicitly says `stock.cmup` is unused/frozen).
  * This is an assumption; flagged in the handoff report.
  */
-export async function listStock(query: StockQuery): Promise<{ content: StockItem[]; total: number }> {
+export async function listStock(
+  query: StockQuery,
+): Promise<{ content: StockItem[]; total: number }> {
   const search = query.search ?? null;
   const magasinId = query.magasinId ?? null;
   const limit = query.size;
   const offset = query.page * query.size;
 
+  const sortFields: Record<string, string> = {
+    reference: "p.reference",
+    designation: "p.designation",
+    magasin: "m.nom",
+    qteDisponible: "qte_disponible",
+    valeur: "valeur",
+  };
+  const sortField =
+    query.sortBy && Object.hasOwn(sortFields, query.sortBy)
+      ? sortFields[query.sortBy]
+      : "p.reference";
+  const direction = query.sortDirection === "desc" ? "DESC" : "ASC";
   const sql = `
     WITH bl_stock AS (
       SELECT bl.magasin_id, bal.produit_id,
@@ -91,17 +105,36 @@ export async function listStock(query: StockQuery): Promise<{ content: StockItem
         OR p.reference ILIKE '%' || $2 || '%'
         OR p.designation ILIKE '%' || $2 || '%'
       )
-    ORDER BY p.reference, m.nom
+      AND ($5::uuid IS NULL OR p.famille_id = $5::uuid)
+      AND ($6::text IS NULL OR ($6 = 'positive' AND c.qte_raw > 0) OR ($6 = 'zero' AND c.qte_raw <= 0))
+    ORDER BY ${sortField} ${direction}, c.produit_id, c.magasin_id
     LIMIT $3 OFFSET $4
   `;
 
-  const result = await pool.query(sql, [magasinId, search, limit, offset]);
+  const result = await pool.query(sql, [
+    magasinId,
+    search,
+    limit,
+    offset,
+    query.familleId ?? null,
+    query.availability ?? null,
+  ]);
   // A window count has no row to travel with on an out-of-range page.
   // Fetch the first row only in that case to preserve truthful page metadata.
-  const countSource = result.rows.length === 0 && offset > 0
-    ? await pool.query(sql, [magasinId, search, 1, 0])
-    : result;
-  const total = countSource.rows[0] ? Number(countSource.rows[0].total_count) : 0;
+  const countSource =
+    result.rows.length === 0 && offset > 0
+      ? await pool.query(sql, [
+          magasinId,
+          search,
+          1,
+          0,
+          query.familleId ?? null,
+          query.availability ?? null,
+        ])
+      : result;
+  const total = countSource.rows[0]
+    ? Number(countSource.rows[0].total_count)
+    : 0;
   const content: StockItem[] = result.rows.map((row) => ({
     produitId: row.produit_id,
     produitReference: row.produit_reference,
@@ -115,7 +148,9 @@ export async function listStock(query: StockQuery): Promise<{ content: StockItem
 }
 
 /** `GET /stock/legacy-lots/lookup?q=&limit=` — search stock_legacy_lots by produit reference/designation. */
-export async function lookupLegacyLots(query: LookupQuery): Promise<LegacyLotLookupItem[]> {
+export async function lookupLegacyLots(
+  query: LookupQuery,
+): Promise<LegacyLotLookupItem[]> {
   const sql = `
     SELECT sll.id, sll.produit_id, p.reference, p.designation, sll.magasin_id, sll.qte_disponible
     FROM stock_legacy_lots sll

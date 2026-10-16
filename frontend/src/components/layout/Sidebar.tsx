@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   ClipboardList,
   Layers,
@@ -12,50 +12,79 @@ import {
   BarChart2,
   UserCog,
   ScrollText,
-} from 'lucide-react';
-import { cn } from '@/utils';
-import { useAuthStore } from '@/store/authStore';
+  X,
+} from "lucide-react";
+import { cn } from "@/utils";
+import { useAuthStore } from "@/store/authStore";
 
 const ADMIN_MENU = [
   {
-    section: 'SAISIE',
-    items: [{ href: '/transactions', label: 'Saisie Transactions', icon: ClipboardList }],
-  },
-  {
-    section: 'RÉFÉRENTIEL',
+    section: "SAISIE",
     items: [
-      { href: '/familles', label: 'Familles', icon: Layers },
-      { href: '/fournisseurs', label: 'Fournisseurs', icon: Users },
-      { href: '/produits', label: 'Produits', icon: Package },
-      { href: '/magasins', label: 'Magasins', icon: Warehouse },
+      {
+        href: "/transactions",
+        label: "Saisie Transactions",
+        icon: ClipboardList,
+      },
     ],
   },
   {
-    section: 'ANALYTIQUE',
+    section: "RÉFÉRENTIEL",
     items: [
-      { href: '/dashboard', label: 'Dashboard KPI', icon: LayoutDashboard },
-      { href: '/bilan', label: 'Bilan Annuel', icon: BarChart2 },
-      { href: '/stock', label: 'Stock disponible', icon: Package },
+      { href: "/familles", label: "Familles", icon: Layers },
+      { href: "/fournisseurs", label: "Fournisseurs", icon: Users },
+      { href: "/produits", label: "Produits", icon: Package },
+      { href: "/magasins", label: "Magasins", icon: Warehouse },
     ],
   },
   {
-    section: 'ADMINISTRATION',
+    section: "ANALYTIQUE",
     items: [
-      { href: '/utilisateurs', label: 'Utilisateurs', icon: UserCog },
-      { href: '/audit', label: 'Journal d’audit', icon: ScrollText },
+      { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
+      { href: "/bilan", label: "Bilan Annuel", icon: BarChart2 },
+      { href: "/stock", label: "Stock disponible", icon: Package },
+    ],
+  },
+  {
+    section: "ADMINISTRATION",
+    items: [
+      { href: "/utilisateurs", label: "Utilisateurs", icon: UserCog },
+      { href: "/audit", label: "Journal d’audit", icon: ScrollText },
     ],
   },
 ];
 
-const SECRETAIRE_MENU = ADMIN_MENU.filter((group) => ['SAISIE', 'RÉFÉRENTIEL'].includes(group.section));
+const SECRETAIRE_MENU = ADMIN_MENU.filter((group) =>
+  ["SAISIE", "RÉFÉRENTIEL"].includes(group.section),
+);
 
-export default function Sidebar() {
+export default function Sidebar({
+  open = false,
+  onClose,
+}: {
+  open?: boolean;
+  onClose?: () => void;
+}) {
   const pathname = usePathname();
   const user = useAuthStore((s) => s.user);
-  const menu = user?.role === 'ADMIN' ? ADMIN_MENU : SECRETAIRE_MENU;
+  const menu = user?.role === "ADMIN" ? ADMIN_MENU : SECRETAIRE_MENU;
 
   return (
-    <aside className="w-56 bg-white border-r border-gray-200 flex flex-col h-full flex-shrink-0">
+    <aside
+      id="apms-navigation"
+      aria-label="Navigation principale"
+      className={
+        (open ? "flex" : "hidden") +
+        " fixed inset-y-0 left-0 z-40 w-56 bg-white border-r border-gray-200 flex-col h-full flex-shrink-0 md:static md:flex"
+      }
+    >
+      <button
+        className="md:hidden self-end m-2 rounded p-2"
+        aria-label="Fermer la navigation"
+        onClick={onClose}
+      >
+        <X size={20} />
+      </button>
       <nav className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-4">
         {menu.map((group) => (
           <div key={group.section}>
@@ -70,11 +99,13 @@ export default function Sidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    aria-current={isActive ? "page" : undefined}
+                    onClick={onClose}
                     className={cn(
-                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
                       isActive
-                        ? 'bg-gray-100 text-gray-900 font-semibold'
-                        : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                        ? "bg-gray-100 text-gray-900 font-semibold"
+                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
                     )}
                   >
                     <Icon size={16} />

@@ -1,3 +1,5 @@
+import { listOrder } from "../common/list-filters.js";
+import type { UserListQuery } from "./schemas.js";
 import crypto from "node:crypto";
 import bcrypt from "bcrypt";
 import type { Prisma, users as UserRow } from "@prisma/client";
@@ -5,7 +7,11 @@ import { prisma } from "../db.js";
 import { audit, type AuditContext } from "../common/audit.js";
 import { ResourceNotFoundException } from "../common/errors.js";
 import type { CurrentUser, Role } from "../common/current-user.js";
-import { toPagedResponse, type PageQuery, type PagedResponse } from "../common/pagination.js";
+import {
+  toPagedResponse,
+  type PageQuery,
+  type PagedResponse,
+} from "../common/pagination.js";
 import type { CreateUserInput, UpdateUserInput } from "./schemas.js";
 
 const BCRYPT_COST = 12;
@@ -37,15 +43,23 @@ function toUserDetail(user: UserRow): UserDetailResponse {
 }
 
 async function findActiveUserOrThrow(id: string): Promise<UserRow> {
-  const user = await prisma.users.findFirst({ where: { id, deleted_at: null } });
+  const user = await prisma.users.findFirst({
+    where: { id, deleted_at: null },
+  });
   if (!user) {
     throw new ResourceNotFoundException("USER", id);
   }
   return user;
 }
 
-export async function listUsers(query: PageQuery): Promise<PagedResponse<UserDetailResponse>> {
-  const where: Prisma.usersWhereInput = { deleted_at: null };
+export async function listUsers(
+  query: UserListQuery,
+): Promise<PagedResponse<UserDetailResponse>> {
+  const where: Prisma.usersWhereInput = {
+    deleted_at: null,
+    ...(query.role ? { role: query.role } : {}),
+    ...(query.isActive !== undefined ? { is_active: query.isActive } : {}),
+  };
   if (query.search) {
     where.OR = [
       { email: { contains: query.search, mode: "insensitive" } },
@@ -57,7 +71,18 @@ export async function listUsers(query: PageQuery): Promise<PagedResponse<UserDet
   const [rows, total] = await Promise.all([
     prisma.users.findMany({
       where,
-      orderBy: { created_at: "desc" },
+      orderBy: listOrder(
+        query,
+        {
+          email: "email",
+          firstName: "first_name",
+          role: "role",
+          createdAt: "created_at",
+          lastLoginAt: "last_login_at",
+        },
+        "created_at",
+        "desc",
+      ),
       skip: query.page * query.size,
       take: query.size,
     }),
@@ -120,7 +145,10 @@ export async function updateUser(
     data.email = input.email;
     changes.email = { from: existing.email, to: input.email };
   }
-  if (input.firstName !== undefined && input.firstName !== existing.first_name) {
+  if (
+    input.firstName !== undefined &&
+    input.firstName !== existing.first_name
+  ) {
     data.first_name = input.firstName;
     changes.firstName = { from: existing.first_name, to: input.firstName };
   }
@@ -157,7 +185,11 @@ export async function updateUser(
   return toUserDetail(updated);
 }
 
-export async function deleteUser(id: string, actor: CurrentUser, ctx: AuditContext): Promise<void> {
+export async function deleteUser(
+  id: string,
+  actor: CurrentUser,
+  ctx: AuditContext,
+): Promise<void> {
   const existing = await findActiveUserOrThrow(id);
 
   await prisma.$transaction(async (tx) => {
@@ -215,7 +247,11 @@ export async function resetPassword(
   await prisma.$transaction(async (tx) => {
     await tx.users.update({
       where: { id },
-      data: { password_hash: passwordHash, must_change_password: true, updated_by: actor.id },
+      data: {
+        password_hash: passwordHash,
+        must_change_password: true,
+        updated_by: actor.id,
+      },
     });
     await tx.user_sessions.updateMany({
       where: { user_id: id, revoked_at: null },
@@ -233,13 +269,21 @@ export async function resetPassword(
   return { temporaryPassword };
 }
 
-export async function unlockUser(id: string, actor: CurrentUser, ctx: AuditContext): Promise<void> {
+export async function unlockUser(
+  id: string,
+  actor: CurrentUser,
+  ctx: AuditContext,
+): Promise<void> {
   const existing = await findActiveUserOrThrow(id);
 
   await prisma.$transaction(async (tx) => {
     await tx.users.update({
       where: { id },
-      data: { locked_until: null, login_attempt_count: 0, updated_by: actor.id },
+      data: {
+        locked_until: null,
+        login_attempt_count: 0,
+        updated_by: actor.id,
+      },
     });
     await audit.logUnlock(tx, {
       entityId: id,

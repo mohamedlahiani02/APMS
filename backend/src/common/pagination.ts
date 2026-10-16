@@ -5,6 +5,8 @@ export const pageQuerySchema = z.object({
   page: z.coerce.number().int().min(0).default(0),
   size: z.coerce.number().int().min(1).max(200).default(20),
   search: z.string().trim().min(1).optional(),
+  sortBy: z.string().max(50).optional(),
+  sortDirection: z.enum(["asc", "desc"]).optional(),
 });
 
 export type PageQuery = z.infer<typeof pageQuerySchema>;
@@ -21,7 +23,11 @@ export interface PagedResponse<T> {
   page: PageMetadata;
 }
 
-export function toPagedResponse<T>(content: T[], totalElements: number, query: PageQuery): PagedResponse<T> {
+export function toPagedResponse<T>(
+  content: T[],
+  totalElements: number,
+  query: PageQuery,
+): PagedResponse<T> {
   return {
     content,
     page: {

@@ -1,3 +1,4 @@
+import { listOrder } from "../common/list-filters.js";
 import type { magasins as MagasinRow } from "@prisma/client";
 import { prisma, Prisma } from "../db.js";
 import { audit } from "../common/audit.js";
@@ -39,11 +40,15 @@ function searchWhere(search: string | undefined) {
 }
 
 export async function listMagasins(query: MagasinListQuery) {
-  const where = { deleted_at: null, ...searchWhere(query.search) };
+  const where = {
+    deleted_at: null,
+    ...searchWhere(query.search),
+    ...(query.isActive !== undefined ? { is_active: query.isActive } : {}),
+  };
   const [rows, total] = await Promise.all([
     prisma.magasins.findMany({
       where,
-      orderBy: { code: "asc" },
+      orderBy: listOrder(query, { code: "code", nom: "nom" }, "code"),
       skip: query.page * query.size,
       take: query.size,
     }),
@@ -52,7 +57,9 @@ export async function listMagasins(query: MagasinListQuery) {
   return toPagedResponse(rows.map(toResponse), total, query);
 }
 
-export async function lookupMagasins(query: LookupQuery): Promise<MagasinLookupItem[]> {
+export async function lookupMagasins(
+  query: LookupQuery,
+): Promise<MagasinLookupItem[]> {
   const where = { deleted_at: null, ...searchWhere(query.q) };
   const rows = await prisma.magasins.findMany({
     where,
@@ -127,7 +134,10 @@ export async function updateMagasinTx(
   if (data.telephone !== undefined && data.telephone !== current.telephone) {
     changes.telephone = { from: current.telephone, to: data.telephone };
   }
-  if (data.responsable !== undefined && data.responsable !== current.responsable) {
+  if (
+    data.responsable !== undefined &&
+    data.responsable !== current.responsable
+  ) {
     changes.responsable = { from: current.responsable, to: data.responsable };
   }
   if (data.isActive !== undefined && data.isActive !== current.is_active) {
@@ -174,7 +184,11 @@ export async function updateMagasin(
  * for magasins (the original Java code didn't gate this the way it did for familles'
  * produits) — so this simply soft-deletes without checking for dependent rows.
  */
-export async function deleteMagasinTx(tx: Db, id: string, actor: CurrentUser | null): Promise<void> {
+export async function deleteMagasinTx(
+  tx: Db,
+  id: string,
+  actor: CurrentUser | null,
+): Promise<void> {
   const current = await findActiveOrThrow(tx, id);
 
   await tx.magasins.update({
@@ -190,6 +204,9 @@ export async function deleteMagasinTx(tx: Db, id: string, actor: CurrentUser | n
   });
 }
 
-export async function deleteMagasin(id: string, actor: CurrentUser | null): Promise<void> {
+export async function deleteMagasin(
+  id: string,
+  actor: CurrentUser | null,
+): Promise<void> {
   return prisma.$transaction((tx) => deleteMagasinTx(tx, id, actor));
 }

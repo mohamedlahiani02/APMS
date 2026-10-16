@@ -1,3 +1,5 @@
+import { buildBlAchatWhere } from "../bl-achats/service.js";
+import { buildVenteWhere as buildVenteWhereFromList } from "../ventes/service.js";
 import ExcelJS from "exceljs";
 import { prisma, Prisma } from "../db.js";
 import type { ExportQuery } from "./schemas.js";
@@ -6,33 +8,18 @@ function toDateOnly(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-function buildBlWhere(query: ExportQuery): Prisma.bl_achatsWhereInput {
+function exportFilters(query: ExportQuery) {
   return {
-    deleted_at: null,
-    ...(query.magasinId ? { magasin_id: query.magasinId } : {}),
-    ...(query.dateFrom || query.dateTo
-      ? {
-          transaction_date: {
-            ...(query.dateFrom ? { gte: query.dateFrom } : {}),
-            ...(query.dateTo ? { lte: query.dateTo } : {}),
-          },
-        }
-      : {}),
+    ...query,
+    dateFrom: query.dateFrom?.toISOString().slice(0, 10),
+    dateTo: query.dateTo?.toISOString().slice(0, 10),
   };
 }
-
-function buildVenteWhere(query: ExportQuery): Prisma.ventesWhereInput {
-  return {
-    ...(query.magasinId ? { magasin_id: query.magasinId } : {}),
-    ...(query.dateFrom || query.dateTo
-      ? {
-          vente_date: {
-            ...(query.dateFrom ? { gte: query.dateFrom } : {}),
-            ...(query.dateTo ? { lte: query.dateTo } : {}),
-          },
-        }
-      : {}),
-  };
+function buildBlWhere(query: ExportQuery) {
+  return buildBlAchatWhere(exportFilters(query));
+}
+function buildVenteWhere(query: ExportQuery) {
+  return buildVenteWhereFromList(exportFilters(query));
 }
 
 /**
@@ -46,7 +33,9 @@ function buildVenteWhere(query: ExportQuery): Prisma.ventesWhereInput {
  * ventes/vente_lignes) with the same filters applied to both — never
  * transactions_legacy, which is frozen and would show stale data.
  */
-export async function buildTransactionsWorkbook(query: ExportQuery): Promise<Buffer> {
+export async function buildTransactionsWorkbook(
+  query: ExportQuery,
+): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
 
   const blSheet = workbook.addWorksheet("BL Achats");
@@ -127,6 +116,16 @@ export async function buildTransactionsWorkbook(query: ExportQuery): Promise<Buf
     }
   }
 
+  if (query.type === "achats") workbook.removeWorksheet(venteSheet.id);
+  if (query.type === "ventes") workbook.removeWorksheet(blSheet.id);
+  for (const sheet of workbook.worksheets) {
+    sheet.views = [{ state: "frozen", ySplit: 1 }];
+    sheet.autoFilter = {
+      from: "A1",
+      to: { row: 1, column: sheet.columnCount },
+    };
+    sheet.getRow(1).font = { bold: true };
+  }
   const buffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(buffer);
 }

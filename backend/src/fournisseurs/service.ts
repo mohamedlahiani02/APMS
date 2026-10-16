@@ -1,3 +1,4 @@
+import { listOrder } from "../common/list-filters.js";
 import type { fournisseurs as FournisseurRow } from "@prisma/client";
 import { prisma, Prisma } from "../db.js";
 import { audit } from "../common/audit.js";
@@ -39,11 +40,15 @@ function searchWhere(search: string | undefined) {
 }
 
 export async function listFournisseurs(query: FournisseurListQuery) {
-  const where = { deleted_at: null, ...searchWhere(query.search) };
+  const where = {
+    deleted_at: null,
+    ...searchWhere(query.search),
+    ...(query.isActive !== undefined ? { is_active: query.isActive } : {}),
+  };
   const [rows, total] = await Promise.all([
     prisma.fournisseurs.findMany({
       where,
-      orderBy: { code: "asc" },
+      orderBy: listOrder(query, { code: "code", nom: "nom" }, "code"),
       skip: query.page * query.size,
       take: query.size,
     }),
@@ -52,7 +57,9 @@ export async function listFournisseurs(query: FournisseurListQuery) {
   return toPagedResponse(rows.map(toResponse), total, query);
 }
 
-export async function lookupFournisseurs(query: LookupQuery): Promise<FournisseurLookupItem[]> {
+export async function lookupFournisseurs(
+  query: LookupQuery,
+): Promise<FournisseurLookupItem[]> {
   const where = { deleted_at: null, ...searchWhere(query.q) };
   const rows = await prisma.fournisseurs.findMany({
     where,
@@ -63,7 +70,9 @@ export async function lookupFournisseurs(query: LookupQuery): Promise<Fournisseu
 }
 
 async function findActiveOrThrow(db: Db, id: string): Promise<FournisseurRow> {
-  const row = await db.fournisseurs.findFirst({ where: { id, deleted_at: null } });
+  const row = await db.fournisseurs.findFirst({
+    where: { id, deleted_at: null },
+  });
   if (!row) throw new ResourceNotFoundException("fournisseur", id);
   return row;
 }
@@ -127,8 +136,14 @@ export async function updateFournisseurTx(
   if (data.email !== undefined && data.email !== current.email) {
     changes.email = { from: current.email, to: data.email };
   }
-  if (data.contactPrincipal !== undefined && data.contactPrincipal !== current.contact_principal) {
-    changes.contactPrincipal = { from: current.contact_principal, to: data.contactPrincipal };
+  if (
+    data.contactPrincipal !== undefined &&
+    data.contactPrincipal !== current.contact_principal
+  ) {
+    changes.contactPrincipal = {
+      from: current.contact_principal,
+      to: data.contactPrincipal,
+    };
   }
   if (data.isActive !== undefined && data.isActive !== current.is_active) {
     changes.isActive = { from: current.is_active, to: data.isActive };
@@ -174,7 +189,11 @@ export async function updateFournisseur(
  * for fournisseurs (the original Java code didn't gate this the way it did for familles'
  * produits) — so this simply soft-deletes without checking for dependent rows.
  */
-export async function deleteFournisseurTx(tx: Db, id: string, actor: CurrentUser | null): Promise<void> {
+export async function deleteFournisseurTx(
+  tx: Db,
+  id: string,
+  actor: CurrentUser | null,
+): Promise<void> {
   const current = await findActiveOrThrow(tx, id);
 
   await tx.fournisseurs.update({
@@ -190,6 +209,9 @@ export async function deleteFournisseurTx(tx: Db, id: string, actor: CurrentUser
   });
 }
 
-export async function deleteFournisseur(id: string, actor: CurrentUser | null): Promise<void> {
+export async function deleteFournisseur(
+  id: string,
+  actor: CurrentUser | null,
+): Promise<void> {
   return prisma.$transaction((tx) => deleteFournisseurTx(tx, id, actor));
 }
