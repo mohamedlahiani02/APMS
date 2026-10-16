@@ -1,9 +1,11 @@
 import { z } from "zod";
+import { booleanQuery } from "../common/list-filters.js";
 import { pageQuerySchema } from "../common/pagination.js";
 
 /** List query: page/size/search (search = reference + designation) plus an optional `familleId` filter. */
 export const produitListQuerySchema = pageQuerySchema.extend({
   familleId: z.string().uuid().optional(),
+  isActive: booleanQuery,
 });
 export type ProduitListQuery = z.infer<typeof produitListQuerySchema>;
 

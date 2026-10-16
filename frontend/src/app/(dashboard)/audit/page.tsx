@@ -1,61 +1,153 @@
-'use client';
-import { useState } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+"use client";
+import { useState, useEffect } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import {
   listAudit,
   getEntityHistory,
-} from '@/features/audit/services/auditService';
-import { listUsers } from '@/features/users/services/userService';
-import { formatDateTime } from '@/utils';
-import type { AuditEntry } from '@/types';
-import Button from '@/components/ui/Button';
-import Modal from '@/components/ui/Modal';
-import ApiErrorBanner from '@/components/shared/ApiErrorBanner';
-import LoadingSpinner from '@/components/shared/LoadingSpinner';
-
+} from "@/features/audit/services/auditService";
+import { listUsers } from "@/features/users/services/userService";
+import { formatDateTime } from "@/utils";
+import type { AuditEntry } from "@/types";
+import {
+  DataTable,
+  ClientTable,
+  useTableState,
+} from "@/components/shared/DataTable";
+import AuditDateFilter, {
+  type AuditDateMode,
+} from "@/components/shared/AuditDateFilter";
+import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
+import SearchSelect from "@/components/ui/SearchSelect";
+import ApiErrorBanner from "@/components/shared/ApiErrorBanner";
+const actions: Record<string, string> = {
+  CREATE: "Création",
+  UPDATE: "Modification",
+  DELETE: "Suppression",
+  LOGIN: "Connexion",
+  LOGIN_FAILED: "Connexion échouée",
+  LOGOUT: "Déconnexion",
+  LOCK: "Verrouillage",
+  UNLOCK: "Déverrouillage",
+  PASSWORD_RESET: "Mot de passe réinitialisé",
+};
+const entities: Record<string, string> = {
+  USER: "Utilisateur",
+  AUTH: "Authentification",
+  FAMILLE: "Famille",
+  FOURNISSEUR: "Fournisseur",
+  MAGASIN: "Magasin",
+  PRODUIT: "Produit",
+  BL_ACHAT: "BL achat",
+  VENTE: "Vente",
+  STOCK: "Stock",
+  TRANSACTION: "Transaction historique",
+};
 function History({ entry }: { entry: AuditEntry }) {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['audit-history', entry.entityType, entry.entityId],
+  const query = useQuery({
+    queryKey: ["audit-history", entry.entityType, entry.entityId],
     queryFn: () => getEntityHistory(entry.entityType, entry.entityId!),
   });
   return (
     <div className="space-y-3">
-      <ApiErrorBanner error={error} />
-      {isLoading && <LoadingSpinner />}
-      {data?.map((r) => (
-        <div key={r.id} className="border rounded-lg p-3 text-sm">
-          <p className="font-semibold">
-            {r.action} — {formatDateTime(r.timestamp)}
-          </p>
-          <p className="text-gray-500">{r.actorEmail ?? 'Système'}</p>
-          <p className="mt-1">{r.summary}</p>
-          {r.changes != null && (
-            <pre className="mt-2 bg-gray-50 p-3 overflow-auto text-xs">
-              {JSON.stringify(r.changes, null, 2)}
-            </pre>
-          )}
-        </div>
-      ))}
+      <ApiErrorBanner error={query.error} />
+      {query.isLoading ? (
+        <p role="status">Chargement…</p>
+      ) : (
+        <ClientTable
+          label="Historique"
+          rows={query.data ?? []}
+          rowKey={(r) => r.id}
+          searchText={(r) => (r.summary ?? "") + " " + (r.actorEmail ?? "")}
+          columns={[
+            {
+              key: "date",
+              label: "Date",
+              sortValue: (r) => r.timestamp,
+              render: (r) => formatDateTime(r.timestamp),
+            },
+            {
+              key: "author",
+              label: "Auteur",
+              sortValue: (r) => r.actorEmail,
+              render: (r) => r.actorEmail ?? "Système",
+            },
+            {
+              key: "action",
+              label: "Action",
+              sortValue: (r) => r.action,
+              render: (r) => actions[r.action] ?? r.action,
+            },
+            {
+              key: "summary",
+              label: "Résumé",
+              render: (r) => (
+                <div>
+                  {r.summary ?? "—"}
+                  {r.changes != null && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-xs underline">
+                        Voir les modifications
+                      </summary>
+                      <pre className="max-h-48 max-w-lg overflow-auto whitespace-pre-wrap break-words mt-2 text-xs">
+                        {JSON.stringify(r.changes, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              ),
+            },
+          ]}
+        />
+      )}
     </div>
   );
 }
 export default function AuditPage() {
-  const [entityType, setEntityType] = useState('');
-  const [actorId, setActorId] = useState('');
-  const [page, setPage] = useState(0);
+  const table = useTableState("timestamp", "desc");
+  const [dateMode, setDateMode] = useState<AuditDateMode>("range");
+  const [entityType, setEntityType] = useState(""),
+    [actorId, setActorId] = useState(""),
+    [action, setAction] = useState(""),
+    [dateFrom, setDateFrom] = useState(""),
+    [dateTo, setDateTo] = useState(""),
+    [term, setTerm] = useState(""),
+    [search, setSearch] = useState("");
   const [selected, setSelected] = useState<AuditEntry | null>(null);
-  const users = useQuery({
-    queryKey: ['users', 'audit-filter'],
-    queryFn: () => listUsers({ page: 0, size: 100 }),
-  });
-  const { data, isLoading, error, isPlaceholderData } = useQuery({
-    queryKey: ['audit', page, entityType, actorId],
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(term);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [term]);
+  const query = useQuery({
+    queryKey: [
+      "audit",
+      table.page,
+      table.size,
+      table.sortBy,
+      table.sortDirection,
+      entityType,
+      actorId,
+      action,
+      dateFrom,
+      dateTo,
+      search,
+    ],
     queryFn: () =>
       listAudit({
-        page,
-        size: 20,
+        page: table.page,
+        size: table.size,
+        sortBy: table.sortBy,
+        sortDirection: table.sortDirection,
         entityType: entityType || undefined,
         actorId: actorId || undefined,
+        action: action || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        search: search || undefined,
       }),
     placeholderData: keepPreviousData,
   });
@@ -63,131 +155,156 @@ export default function AuditPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold">Journal d’audit</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Historique des actions et modifications
+        <p className="mt-1 text-sm text-gray-500">
+          Actions et modifications — dates à l’heure de Tunis
         </p>
       </div>
-      <div className="flex gap-3">
-        <select
-          aria-label="Type d’entité"
-          className="border rounded-lg p-2 bg-white"
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-end">
+        <Input
+          label="Recherche"
+          placeholder="Rechercher dans les résumés…"
+          value={term}
+          onChange={(e) => {
+            setTerm(e.target.value);
+            table.resetPage();
+          }}
+        />
+        <Select
+          label="Entité"
           value={entityType}
           onChange={(e) => {
             setEntityType(e.target.value);
-            setPage(0);
+            table.resetPage();
           }}
-        >
-          <option value="">Toutes les entités</option>
-          {[
-            'USER',
-            'AUTH',
-            'FAMILLE',
-            'FOURNISSEUR',
-            'MAGASIN',
-            'PRODUIT',
-            'BL_ACHAT',
-            'VENTE',
-          ].map((t) => (
-            <option key={t}>{t}</option>
-          ))}
-        </select>
-        <select
-          aria-label="Auteur"
-          className="border rounded-lg p-2 bg-white"
-          value={actorId}
+          options={[
+            { value: "", label: "Toutes les entités" },
+            ...Object.entries(entities).map(([value, label]) => ({
+              value,
+              label,
+            })),
+          ]}
+        />
+        <Select
+          label="Action"
+          value={action}
           onChange={(e) => {
-            setActorId(e.target.value);
-            setPage(0);
+            setAction(e.target.value);
+            table.resetPage();
+          }}
+          options={[
+            { value: "", label: "Toutes les actions" },
+            ...Object.entries(actions).map(([value, label]) => ({
+              value,
+              label,
+            })),
+          ]}
+        />
+        <SearchSelect
+          label="Auteur"
+          value={actorId}
+          onChange={(id) => {
+            setActorId(id);
+            table.resetPage();
+          }}
+          onSearch={async (q) =>
+            (await listUsers({ search: q, size: 20 })).content.map((u) => ({
+              id: u.id,
+              label: u.email,
+            }))
+          }
+          queryKey="audit-users"
+          getId={(r) => r.id}
+          getLabel={(r) => r.label}
+          placeholder="Tous les auteurs"
+        />
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <AuditDateFilter
+          mode={dateMode}
+          onModeChange={setDateMode}
+          from={dateFrom}
+          to={dateTo}
+          onChange={(a, b) => {
+            setDateFrom(a);
+            setDateTo(b);
+            table.resetPage();
+          }}
+        />
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setEntityType("");
+            setActorId("");
+            setAction("");
+            setDateMode("range");
+            setDateFrom("");
+            setDateTo("");
+            setTerm("");
+            setSearch("");
+            table.resetPage();
           }}
         >
-          <option value="">Tous les auteurs</option>
-          {users.data?.content.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.email}
-            </option>
-          ))}
-        </select>
+          Réinitialiser
+        </Button>
       </div>
-      <ApiErrorBanner error={error || users.error} />
-      {isLoading ? (
-        <LoadingSpinner />
-      ) : (
-        <div className="bg-white border rounded-xl overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                {['Date', 'Auteur', 'Entité', 'Action', 'Résumé', ''].map(
-                  (t, i) => (
-                    <th key={i} className="text-left p-4">
-                      {t}
-                    </th>
-                  ),
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {data?.content.map((r) => (
-                <tr key={r.id} className="border-t">
-                  <td className="p-4 whitespace-nowrap">
-                    {formatDateTime(r.timestamp)}
-                  </td>
-                  <td className="p-4">{r.actorEmail ?? 'Système'}</td>
-                  <td className="p-4">{r.entityType}</td>
-                  <td className="p-4">{r.action}</td>
-                  <td className="p-4">{r.summary}</td>
-                  <td className="p-4">
-                    {r.entityId && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setSelected(r)}
-                      >
-                        Historique
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {data?.content.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-500">
-                    Aucune action trouvée
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-      <div className="flex justify-between text-sm text-gray-500">
-        <span>{data?.page.totalElements ?? 0} actions</span>
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            disabled={page === 0 || isPlaceholderData}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            Précédent
-          </Button>
-          <span className="p-2">
-            {page + 1} / {Math.max(data?.page.totalPages ?? 1, 1)}
-          </span>
-          <Button
-            variant="secondary"
-            disabled={
-              isPlaceholderData || page + 1 >= (data?.page.totalPages ?? 0)
-            }
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Suivant
-          </Button>
-        </div>
-      </div>
+      <DataTable
+        label="Journal d’audit"
+        rows={query.data?.content ?? []}
+        rowKey={(r) => r.id}
+        total={query.data?.page.totalElements ?? 0}
+        state={table}
+        loading={query.isLoading}
+        busy={query.isPlaceholderData}
+        error={query.error}
+        columns={[
+          {
+            key: "timestamp",
+            label: "Date",
+            sortable: true,
+            render: (r) => formatDateTime(r.timestamp),
+          },
+          {
+            key: "actorEmail",
+            label: "Auteur",
+            sortable: true,
+            render: (r) => r.actorEmail ?? "Système",
+          },
+          {
+            key: "entityType",
+            label: "Entité",
+            sortable: true,
+            render: (r) => entities[r.entityType] ?? r.entityType,
+          },
+          {
+            key: "action",
+            label: "Action",
+            sortable: true,
+            render: (r) => actions[r.action] ?? r.action,
+          },
+          { key: "summary", label: "Résumé", render: (r) => r.summary ?? "—" },
+          {
+            key: "history",
+            label: "Détail",
+            render: (r) =>
+              r.entityId ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setSelected(r)}
+                >
+                  Historique
+                </Button>
+              ) : (
+                "—"
+              ),
+          },
+        ]}
+      />
       <Modal
         open={!!selected}
         onClose={() => setSelected(null)}
         title="Historique de l’entité"
-        size="lg"
+        size="xl"
       >
         {selected && <History entry={selected} />}
       </Modal>

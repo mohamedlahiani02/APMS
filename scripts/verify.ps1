@@ -12,4 +12,5 @@ Invoke-Check -Folder 'backend' -Arguments @('run', 'lint')
 if (-not $SkipTests) { Invoke-Check -Folder 'backend' -Arguments @('test') }
 Invoke-Check -Folder 'backend' -Arguments @('run', 'build')
 Invoke-Check -Folder 'frontend' -Arguments @('run', 'lint')
+if (-not $SkipTests) { Invoke-Check -Folder 'frontend' -Arguments @('test') }
 Invoke-Check -Folder 'frontend' -Arguments @('run', 'build')

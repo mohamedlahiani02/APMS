@@ -1,5 +1,8 @@
 import { pool, prisma } from "../db.js";
-import { ResourceNotFoundException, ValidationException } from "../common/errors.js";
+import {
+  ResourceNotFoundException,
+  ValidationException,
+} from "../common/errors.js";
 import type { DrilldownDimension } from "./schemas.js";
 
 /**
@@ -33,9 +36,26 @@ interface KpiRow {
   nb_tx: string;
 }
 
-async function fetchKpiLines(year: number, month: number): Promise<KpiRow[]> {
-  const result = await pool.query("SELECT * FROM get_kpi_lines_for_month($1, $2)", [year, month]);
-  return result.rows as KpiRow[];
+export interface AnalyticsScope {
+  magasinId?: string;
+  familleId?: string;
+  fournisseurId?: string;
+}
+async function fetchKpiLines(
+  year: number,
+  month: number,
+  scope: AnalyticsScope = {},
+): Promise<KpiRow[]> {
+  const result = await pool.query(
+    "SELECT * FROM get_kpi_lines_for_month($1, $2)",
+    [year, month],
+  );
+  return (result.rows as KpiRow[]).filter(
+    (row) =>
+      (!scope.magasinId || row.magasin_id === scope.magasinId) &&
+      (!scope.familleId || row.famille_id === scope.familleId) &&
+      (!scope.fournisseurId || row.fournisseur_id === scope.fournisseurId),
+  );
 }
 
 function toNum(value: string | null | undefined): number {
@@ -61,7 +81,10 @@ function currentYearMonth(): { year: number; month: number } {
 function assertNotFuturePeriod(year: number, month: number): void {
   const { year: curYear, month: curMonth } = currentYearMonth();
   if (year > curYear || (year === curYear && month > curMonth)) {
-    throw new ValidationException("La période demandée est dans le futur.", { year, month });
+    throw new ValidationException("La période demandée est dans le futur.", {
+      year,
+      month,
+    });
   }
 }
 
@@ -69,7 +92,9 @@ function assertNotFuturePeriod(year: number, month: number): void {
 function assertNotFutureYear(year: number): void {
   const { year: curYear } = currentYearMonth();
   if (year > curYear) {
-    throw new ValidationException("L'année demandée est dans le futur.", { year });
+    throw new ValidationException("L'année demandée est dans le futur.", {
+      year,
+    });
   }
 }
 
@@ -80,7 +105,10 @@ function capitalize(s: string): string {
 /** French month name, capitalized (e.g. "Janvier"), computed in UTC to avoid local-timezone month drift. */
 function frMonthLabel(year: number, month: number): string {
   const date = new Date(Date.UTC(year, month - 1, 1));
-  const raw = new Intl.DateTimeFormat("fr-FR", { month: "long", timeZone: "UTC" }).format(date);
+  const raw = new Intl.DateTimeFormat("fr-FR", {
+    month: "long",
+    timeZone: "UTC",
+  }).format(date);
   return capitalize(raw);
 }
 
@@ -95,7 +123,13 @@ function emptyAgg(): Agg {
   return { totalAchat: 0, totalVente: 0, totalValeur: 0, nbTx: 0 };
 }
 
-function addInto(agg: Agg, achat: number, vente: number, valeur: number, tx: number): void {
+function addInto(
+  agg: Agg,
+  achat: number,
+  vente: number,
+  valeur: number,
+  tx: number,
+): void {
   agg.totalAchat += achat;
   agg.totalVente += vente;
   agg.totalValeur += valeur;
@@ -131,7 +165,13 @@ function aggregateRows(rows: KpiRow[]): Aggregated {
     const tx = toNum(row.nb_tx);
 
     addInto(totals, achat, vente, valeur, tx);
-    addInto(getOrInit(byFournisseur, row.fournisseur_id), achat, vente, valeur, tx);
+    addInto(
+      getOrInit(byFournisseur, row.fournisseur_id),
+      achat,
+      vente,
+      valeur,
+      tx,
+    );
     addInto(getOrInit(byFamille, row.famille_id), achat, vente, valeur, tx);
     addInto(getOrInit(byMagasin, row.magasin_id), achat, vente, valeur, tx);
   }
@@ -189,7 +229,10 @@ export interface MagasinBreakdown {
   nbTx: number;
 }
 
-function buildFournisseurBreakdown(agg: Aggregated, names: NameMaps): FournisseurBreakdown[] {
+function buildFournisseurBreakdown(
+  agg: Aggregated,
+  names: NameMaps,
+): FournisseurBreakdown[] {
   const rows = [...agg.byFournisseur.entries()]
     .map(([id, v]) => ({
       fournisseurId: id,
@@ -204,11 +247,15 @@ function buildFournisseurBreakdown(agg: Aggregated, names: NameMaps): Fournisseu
   const topAchat = rows[0]?.totalAchat ?? 0;
   return rows.map((r) => ({
     ...r,
-    pctAchatDuTop: topAchat > 0 ? round2((r.totalAchat * 100) / topAchat) : null,
+    pctAchatDuTop:
+      topAchat > 0 ? round2((r.totalAchat * 100) / topAchat) : null,
   }));
 }
 
-function buildFamilleBreakdown(agg: Aggregated, names: NameMaps): FamilleBreakdown[] {
+function buildFamilleBreakdown(
+  agg: Aggregated,
+  names: NameMaps,
+): FamilleBreakdown[] {
   return [...agg.byFamille.entries()]
     .map(([id, v]) => ({
       familleId: id,
@@ -222,7 +269,10 @@ function buildFamilleBreakdown(agg: Aggregated, names: NameMaps): FamilleBreakdo
     .sort((a, b) => b.totalVente - a.totalVente);
 }
 
-function buildMagasinBreakdown(agg: Aggregated, names: NameMaps): MagasinBreakdown[] {
+function buildMagasinBreakdown(
+  agg: Aggregated,
+  names: NameMaps,
+): MagasinBreakdown[] {
   return [...agg.byMagasin.entries()]
     .map(([id, v]) => ({
       magasinId: id,
@@ -239,6 +289,14 @@ function buildMagasinBreakdown(agg: Aggregated, names: NameMaps): MagasinBreakdo
 export interface DashboardResponse {
   year: number;
   month: number;
+  previousPeriod: {
+    year: number;
+    month: number;
+    totalAchat: number;
+    totalVente: number;
+    totalValeur: number;
+    marge: number;
+  } | null;
   totals: {
     totalAchat: number;
     totalVente: number;
@@ -250,33 +308,76 @@ export interface DashboardResponse {
   parFournisseur: FournisseurBreakdown[];
   parFamille: FamilleBreakdown[];
   parMagasin: MagasinBreakdown[];
-  topFamillesParVente: Array<{ familleId: string; familleNom: string; totalVente: number }>;
-  topFamillesParValeur: Array<{ familleId: string; familleNom: string; totalValeur: number }>;
+  topFamillesParVente: Array<{
+    familleId: string;
+    familleNom: string;
+    totalVente: number;
+  }>;
+  topFamillesParValeur: Array<{
+    familleId: string;
+    familleNom: string;
+    totalValeur: number;
+  }>;
 }
 
-export async function getDashboard(year: number, month: number): Promise<DashboardResponse> {
+export async function getDashboard(
+  year: number,
+  month: number,
+  scope: AnalyticsScope = {},
+): Promise<DashboardResponse> {
   assertNotFuturePeriod(year, month);
 
-  const [rows, names] = await Promise.all([fetchKpiLines(year, month), loadNameMaps()]);
+  const [rows, names] = await Promise.all([
+    fetchKpiLines(year, month, scope),
+    loadNameMaps(),
+  ]);
   const agg = aggregateRows(rows);
+  const previousYear = month === 1 ? year - 1 : year;
+  const previousMonth = month === 1 ? 12 : month - 1;
+  const previous =
+    previousYear >= 2000
+      ? aggregateRows(await fetchKpiLines(previousYear, previousMonth, scope))
+          .totals
+      : null;
 
   const marge = round2(agg.totals.totalVente - agg.totals.totalAchat);
-  const tauxMarge = agg.totals.totalVente === 0 ? null : round2((marge * 100) / agg.totals.totalVente);
+  const tauxMarge =
+    agg.totals.totalVente === 0
+      ? null
+      : round2((marge * 100) / agg.totals.totalVente);
 
   const parFamille = buildFamilleBreakdown(agg, names);
 
   const topFamillesParVente = [...parFamille]
     .sort((a, b) => b.totalVente - a.totalVente)
     .slice(0, 5)
-    .map((f) => ({ familleId: f.familleId, familleNom: f.familleNom, totalVente: f.totalVente }));
+    .map((f) => ({
+      familleId: f.familleId,
+      familleNom: f.familleNom,
+      totalVente: f.totalVente,
+    }));
   const topFamillesParValeur = [...parFamille]
     .sort((a, b) => b.totalValeur - a.totalValeur)
     .slice(0, 5)
-    .map((f) => ({ familleId: f.familleId, familleNom: f.familleNom, totalValeur: f.totalValeur }));
+    .map((f) => ({
+      familleId: f.familleId,
+      familleNom: f.familleNom,
+      totalValeur: f.totalValeur,
+    }));
 
   return {
     year,
     month,
+    previousPeriod: previous
+      ? {
+          year: previousYear,
+          month: previousMonth,
+          totalAchat: round2(previous.totalAchat),
+          totalVente: round2(previous.totalVente),
+          totalValeur: round2(previous.totalValeur),
+          marge: round2(previous.totalVente - previous.totalAchat),
+        }
+      : null,
     totals: {
       totalAchat: round2(agg.totals.totalAchat),
       totalVente: round2(agg.totals.totalVente),
@@ -344,8 +445,12 @@ async function monthDirectTotals(
     ),
   ]);
 
-  const achatRow = achatResult.rows[0] as { achat: string; cnt: string } | undefined;
-  const venteRow = venteResult.rows[0] as { vente: string; cnt: string } | undefined;
+  const achatRow = achatResult.rows[0] as
+    | { achat: string; cnt: string }
+    | undefined;
+  const venteRow = venteResult.rows[0] as
+    | { vente: string; cnt: string }
+    | undefined;
 
   return {
     totalAchat: toNum(achatRow?.achat),
@@ -354,14 +459,19 @@ async function monthDirectTotals(
   };
 }
 
-export async function getAnnualReport(year: number): Promise<AnnualReportResponse> {
+export async function getAnnualReport(
+  year: number,
+): Promise<AnnualReportResponse> {
   assertNotFutureYear(year);
   const { year: curYear, month: curMonth } = currentYearMonth();
   const upToMonth = year === curYear ? curMonth : 12;
 
   const evolution: AnnualReportResponse["evolution"] = [];
   for (let month = 1; month <= upToMonth; month++) {
-    const { totalAchat, totalVente, nbTx } = await monthDirectTotals(year, month);
+    const { totalAchat, totalVente, nbTx } = await monthDirectTotals(
+      year,
+      month,
+    );
     evolution.push({
       month,
       monthLabel: frMonthLabel(year, month),
@@ -379,7 +489,10 @@ export async function getAnnualReport(year: number): Promise<AnnualReportRespons
   // Per-dimension breakdowns and cumValeur: end-of-period snapshot state only
   // (get_kpi_lines_for_month(year, upToMonth)), not a sum across all months —
   // intentional per the original, not reconciled with the evolution totals above.
-  const [rows, names] = await Promise.all([fetchKpiLines(year, upToMonth), loadNameMaps()]);
+  const [rows, names] = await Promise.all([
+    fetchKpiLines(year, upToMonth),
+    loadNameMaps(),
+  ]);
   const agg = aggregateRows(rows);
   const cumValeur = round2(agg.totals.totalValeur);
 
@@ -418,15 +531,28 @@ async function findDimensionEntity(
 ): Promise<{ id: string; nom: string } | null> {
   switch (dimension) {
     case "familles":
-      return prisma.familles.findFirst({ where: { id, deleted_at: null }, select: { id: true, nom: true } });
+      return prisma.familles.findFirst({
+        where: { id, deleted_at: null },
+        select: { id: true, nom: true },
+      });
     case "fournisseurs":
-      return prisma.fournisseurs.findFirst({ where: { id, deleted_at: null }, select: { id: true, nom: true } });
+      return prisma.fournisseurs.findFirst({
+        where: { id, deleted_at: null },
+        select: { id: true, nom: true },
+      });
     case "magasins":
-      return prisma.magasins.findFirst({ where: { id, deleted_at: null }, select: { id: true, nom: true } });
+      return prisma.magasins.findFirst({
+        where: { id, deleted_at: null },
+        select: { id: true, nom: true },
+      });
   }
 }
 
-function matchesDimension(row: KpiRow, dimension: DrilldownDimension, id: string): boolean {
+function matchesDimension(
+  row: KpiRow,
+  dimension: DrilldownDimension,
+  id: string,
+): boolean {
   switch (dimension) {
     case "familles":
       return row.famille_id === id;
@@ -481,6 +607,7 @@ export async function getDrilldown(
   id: string,
   year: number,
   month: number,
+  scope: AnalyticsScope = {},
 ): Promise<DrilldownResponse> {
   assertNotFuturePeriod(year, month);
 
@@ -489,7 +616,7 @@ export async function getDrilldown(
     throw new ResourceNotFoundException(entityTypeByDimension[dimension], id);
   }
 
-  const allRows = await fetchKpiLines(year, month);
+  const allRows = await fetchKpiLines(year, month, scope);
   const rows = allRows.filter((row) => matchesDimension(row, dimension, id));
 
   const produitIds = [...new Set(rows.map((r) => r.produit_id))];
@@ -498,10 +625,22 @@ export async function getDrilldown(
   const familleIds = [...new Set(rows.map((r) => r.famille_id))];
 
   const [produits, magasins, fournisseurs, familles] = await Promise.all([
-    prisma.produits.findMany({ where: { id: { in: produitIds } }, select: { id: true, reference: true, designation: true } }),
-    prisma.magasins.findMany({ where: { id: { in: magasinIds } }, select: { id: true, nom: true } }),
-    prisma.fournisseurs.findMany({ where: { id: { in: fournisseurIds } }, select: { id: true, nom: true } }),
-    prisma.familles.findMany({ where: { id: { in: familleIds } }, select: { id: true, nom: true } }),
+    prisma.produits.findMany({
+      where: { id: { in: produitIds } },
+      select: { id: true, reference: true, designation: true },
+    }),
+    prisma.magasins.findMany({
+      where: { id: { in: magasinIds } },
+      select: { id: true, nom: true },
+    }),
+    prisma.fournisseurs.findMany({
+      where: { id: { in: fournisseurIds } },
+      select: { id: true, nom: true },
+    }),
+    prisma.familles.findMany({
+      where: { id: { in: familleIds } },
+      select: { id: true, nom: true },
+    }),
   ]);
   const produitMap = new Map(produits.map((p) => [p.id, p]));
   const magasinMap = new Map(magasins.map((p) => [p.id, p.nom]));
@@ -538,7 +677,13 @@ export async function getDrilldown(
   const qteDeficit = round2(items.reduce((s, i) => s + i.qteDeficit, 0));
   const nbTx = items.reduce((s, i) => s + i.nbTx, 0);
 
-  const totals: DrilldownResponse["totals"] = { totalAchat, totalVente, totalValeur, qteDeficit, nbTx };
+  const totals: DrilldownResponse["totals"] = {
+    totalAchat,
+    totalVente,
+    totalValeur,
+    qteDeficit,
+    nbTx,
+  };
   if (dimension === "fournisseurs") {
     totals.marge = round2(totalVente - totalAchat);
   }

@@ -1,8 +1,11 @@
+import { booleanQuery } from "../common/list-filters.js";
 import { z } from "zod";
 import { pageQuerySchema } from "../common/pagination.js";
 
 /** List query: page/size/search (search = code + nom, case-insensitive contains). */
-export const familleListQuerySchema = pageQuerySchema;
+export const familleListQuerySchema = pageQuerySchema.extend({
+  isActive: booleanQuery,
+});
 export type FamilleListQuery = z.infer<typeof familleListQuerySchema>;
 
 /** `code` is required and immutable afterwards — never part of the update schema. */

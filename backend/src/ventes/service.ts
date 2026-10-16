@@ -1,4 +1,5 @@
-import { lockStockLedger } from '../common/stock-lock.js';
+import { listOrder } from "../common/list-filters.js";
+import { lockStockLedger } from "../common/stock-lock.js";
 import { prisma, round3, Prisma } from "../db.js";
 import { audit, type AuditContext } from "../common/audit.js";
 import type { CurrentUser } from "../common/current-user.js";
@@ -15,31 +16,43 @@ type Db = typeof prisma | Tx;
 
 const VENTE_INCLUDE = {
   magasins: true,
-  vente_lignes: { include: { produits: true }, orderBy: { created_at: "asc" as const } },
+  vente_lignes: {
+    include: { produits: true },
+    orderBy: { created_at: "asc" as const },
+  },
 } satisfies Prisma.ventesInclude;
 
 async function loadActiveMagasin(db: Db, id: string) {
   const row = await db.magasins.findUnique({ where: { id } });
-  if (!row || row.deleted_at) throw new ResourceNotFoundException("Magasin", id);
+  if (!row || row.deleted_at)
+    throw new ResourceNotFoundException("Magasin", id);
   if (!row.is_active) throw entityInactive("Magasin", id);
   return row;
 }
 
 async function loadActiveProduit(db: Db, id: string) {
   const row = await db.produits.findUnique({ where: { id } });
-  if (!row || row.deleted_at) throw new ResourceNotFoundException("Produit", id);
+  if (!row || row.deleted_at)
+    throw new ResourceNotFoundException("Produit", id);
   if (!row.is_active) throw entityInactive("Produit", id);
   return row;
 }
 
-async function requireCalendarDateId(db: Db, isoDate: string, forDb: Date): Promise<number> {
+async function requireCalendarDateId(
+  db: Db,
+  isoDate: string,
+  forDb: Date,
+): Promise<number> {
   const row = await db.calendar.findUnique({ where: { date_full: forDb } });
   if (!row) throw new ResourceNotFoundException("Calendar", isoDate);
   return row.date_id;
 }
 
 async function loadVenteOrThrow(db: Db, id: string) {
-  const row = await db.ventes.findUnique({ where: { id }, include: VENTE_INCLUDE });
+  const row = await db.ventes.findUnique({
+    where: { id },
+    include: VENTE_INCLUDE,
+  });
   if (!row) throw new ResourceNotFoundException("Vente", id);
   return row;
 }
@@ -120,7 +133,13 @@ export async function createVenteTx(
       (anyDepassement ? ", dépassement de stock signalé" : "") +
       ")";
 
-    await audit.logCreate(tx, { entityType: "VENTE", entityId: vente.id, actor, summary, ...ctx });
+    await audit.logCreate(tx, {
+      entityType: "VENTE",
+      entityId: vente.id,
+      actor,
+      summary,
+      ...ctx,
+    });
 
     return toVenteResponse(await loadVenteOrThrow(tx, vente.id));
   }
@@ -148,7 +167,10 @@ export async function updateVenteTx(
   validateTransactionDate(forValidation);
 
   {
-    const current = await tx.ventes.findUnique({ where: { id }, include: { vente_lignes: true } });
+    const current = await tx.ventes.findUnique({
+      where: { id },
+      include: { vente_lignes: true },
+    });
     if (!current) throw new ResourceNotFoundException("Vente", id);
 
     // Reverse every existing draw, then hard-delete the old lines, BEFORE redrawing —
@@ -173,18 +195,34 @@ export async function updateVenteTx(
       },
     });
 
-    const { anyDepassement } = await drawAndPersistAll(tx, id, input.magasinId, input.lignes);
+    const { anyDepassement } = await drawAndPersistAll(
+      tx,
+      id,
+      input.magasinId,
+      input.lignes,
+    );
 
     const summary =
-      `Vente modifiée : ${magasin.nom}` + (anyDepassement ? ", dépassement de stock signalé" : "");
+      `Vente modifiée : ${magasin.nom}` +
+      (anyDepassement ? ", dépassement de stock signalé" : "");
 
-    await audit.logUpdate(tx, { entityType: "VENTE", entityId: id, actor, summary, ...ctx });
+    await audit.logUpdate(tx, {
+      entityType: "VENTE",
+      entityId: id,
+      actor,
+      summary,
+      ...ctx,
+    });
 
     return toVenteResponse(await loadVenteOrThrow(tx, id));
   }
 }
 
-export async function deleteVente(id: string, actor: CurrentUser, ctx: AuditContext): Promise<void> {
+export async function deleteVente(
+  id: string,
+  actor: CurrentUser,
+  ctx: AuditContext,
+): Promise<void> {
   await prisma.$transaction((tx) => deleteVenteTx(tx, id, actor, ctx));
 }
 
@@ -225,7 +263,9 @@ export async function getVente(id: string): Promise<VenteResponse> {
   return toVenteResponse(await loadVenteOrThrow(prisma, id));
 }
 
-export async function listVentes(query: ListVentesQuery) {
+export function buildVenteWhere(
+  query: Partial<ListVentesQuery>,
+): Prisma.ventesWhereInput {
   const where: Prisma.ventesWhereInput = {};
   if (query.magasinId) where.magasin_id = query.magasinId;
   if (query.dateFrom || query.dateTo) {
@@ -247,12 +287,26 @@ export async function listVentes(query: ListVentesQuery) {
     };
   }
 
+  if (query.hasDepassement !== undefined) {
+    where.AND = [
+      {
+        vente_lignes: query.hasDepassement
+          ? { some: { depassement_stock: true } }
+          : { none: { depassement_stock: true } },
+      },
+    ];
+  }
+  return where;
+}
+
+export async function listVentes(query: ListVentesQuery) {
+  const where = buildVenteWhere(query);
   const [total, rows] = await Promise.all([
     prisma.ventes.count({ where }),
     prisma.ventes.findMany({
       where,
       include: VENTE_INCLUDE,
-      orderBy: [{ vente_date: "desc" }, { created_at: "desc" }],
+      orderBy: listOrder(query, { date: "vente_date" }, "vente_date", "desc"),
       skip: query.page * query.size,
       take: query.size,
     }),

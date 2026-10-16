@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { pageQuerySchema } from "../common/pagination.js";
+import { booleanQuery } from "../common/list-filters.js";
 
 export const roleSchema = z.enum(["ADMIN", "SECRETAIRE"]);
 
@@ -23,3 +25,9 @@ export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export const userIdParamsSchema = z.object({
   id: z.string().uuid(),
 });
+
+export const userListQuerySchema = pageQuerySchema.extend({
+  role: roleSchema.optional(),
+  isActive: booleanQuery,
+});
+export type UserListQuery = z.infer<typeof userListQuerySchema>;

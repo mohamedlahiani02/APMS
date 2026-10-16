@@ -1,0 +1,363 @@
+{
+  "startedAt": "2026-10-16T21:31:19.376Z",
+  "runtime": {
+    "node": "v22.12.0",
+    "platform": "win32",
+    "logicalCpus": 16
+  },
+  "dataset": {
+    "products": 257,
+    "purchases": 1007,
+    "purchaseLines": 1007,
+    "sales": 0
+  },
+  "checks": [
+    {
+      "name": "TVA and HALF_UP unit 0",
+      "actual": 8.931,
+      "expected": 8.931,
+      "pass": true
+    },
+    {
+      "name": "Fractional quantity total 0",
+      "actual": 10.047,
+      "expected": 10.047,
+      "pass": true
+    },
+    {
+      "name": "TVA and HALF_UP unit 1",
+      "actual": 0.107,
+      "expected": 0.107,
+      "pass": true
+    },
+    {
+      "name": "Fractional quantity total 1",
+      "actual": 0.268,
+      "expected": 0.268,
+      "pass": true
+    },
+    {
+      "name": "TVA and HALF_UP unit 2",
+      "actual": 1.136,
+      "expected": 1.136,
+      "pass": true
+    },
+    {
+      "name": "Fractional quantity total 2",
+      "actual": 0.001,
+      "expected": 0.001,
+      "pass": true
+    },
+    {
+      "name": "TVA and HALF_UP unit 3",
+      "actual": 0.057,
+      "expected": 0.057,
+      "pass": true
+    },
+    {
+      "name": "Fractional quantity total 3",
+      "actual": 0.171,
+      "expected": 0.171,
+      "pass": true
+    },
+    {
+      "name": "FIFO source split",
+      "actual": [
+        10,
+        2
+      ],
+      "expected": [
+        10,
+        2
+      ],
+      "pass": true
+    },
+    {
+      "name": "Sale total",
+      "actual": 360,
+      "expected": 360,
+      "pass": true
+    },
+    {
+      "name": "Live stock after sale",
+      "actual": 18,
+      "expected": 18,
+      "pass": true
+    },
+    {
+      "name": "Live lot-cost value",
+      "actual": 360,
+      "expected": 360,
+      "pass": true
+    },
+    {
+      "name": "Weighted-average month-end stock",
+      "actual": 18,
+      "expected": 18,
+      "pass": true
+    },
+    {
+      "name": "Weighted-average cost",
+      "actual": 16.667,
+      "expected": 16.667,
+      "pass": true
+    },
+    {
+      "name": "Weighted-average month-end value",
+      "actual": 300,
+      "expected": 300,
+      "pass": true
+    },
+    {
+      "name": "Edited sale reverse/redraw quantity",
+      "actual": 27,
+      "expected": 27,
+      "pass": true
+    },
+    {
+      "name": "Edited sale lot valuation",
+      "actual": 470,
+      "expected": 470,
+      "pass": true
+    },
+    {
+      "name": "Deleted sale restores stock",
+      "actual": 30,
+      "expected": 30,
+      "pass": true
+    },
+    {
+      "name": "Oversell quantity",
+      "actual": 5,
+      "expected": 5,
+      "pass": true
+    },
+    {
+      "name": "Oversell revenue retained",
+      "actual": 70,
+      "expected": 70,
+      "pass": true
+    },
+    {
+      "name": "Oversell stock clamped",
+      "actual": 0,
+      "expected": 0,
+      "pass": true
+    },
+    {
+      "name": "Oversell analytic deficit",
+      "actual": 5,
+      "expected": 5,
+      "pass": true
+    },
+    {
+      "name": "Deleting oversell creates no phantom stock",
+      "actual": 30,
+      "expected": 30,
+      "pass": true
+    },
+    {
+      "name": "Legacy live stock",
+      "actual": 6,
+      "expected": 6,
+      "pass": true
+    },
+    {
+      "name": "Legacy analytic stock must match remaining stock",
+      "actual": 6,
+      "expected": 6,
+      "pass": true
+    },
+    {
+      "name": "Legacy analytic value",
+      "actual": 18,
+      "expected": 18,
+      "pass": true
+    },
+    {
+      "name": "Legacy historical balance before later sale",
+      "actual": 10,
+      "expected": 10,
+      "pass": true
+    },
+    {
+      "name": "Legacy oversell deficit is only uncovered quantity",
+      "actual": 2,
+      "expected": 2,
+      "pass": true
+    },
+    {
+      "name": "Header-only supplier edit invalidates KPI cache",
+      "actual": 476,
+      "expected": 476,
+      "pass": true
+    },
+    {
+      "name": "Product family edit invalidates KPI cache",
+      "actual": 595,
+      "expected": 595,
+      "pass": true
+    },
+    {
+      "name": "Cumulative audit filters",
+      "actual": true,
+      "expected": true,
+      "pass": true
+    },
+    {
+      "name": "Concurrent sales cannot overdraw covered stock",
+      "actual": 10,
+      "expected": 10,
+      "pass": true
+    },
+    {
+      "name": "Concurrent uncovered demand",
+      "actual": 10,
+      "expected": 10,
+      "pass": true
+    },
+    {
+      "name": "Concurrent reversal restores exact stock",
+      "actual": 10,
+      "expected": 10,
+      "pass": true
+    },
+    {
+      "name": "Independent dashboard purchase total",
+      "actual": 119617.39,
+      "expected": 119617.39,
+      "pass": true
+    },
+    {
+      "name": "Independent dashboard stock value",
+      "actual": 100548.84,
+      "expected": 100548.84,
+      "pass": true
+    },
+    {
+      "name": "Independent dashboard sales-minus-purchases",
+      "actual": -119617.39,
+      "expected": -119617.39,
+      "pass": true
+    },
+    {
+      "name": "Independent annual purchase total",
+      "actual": 119617.39,
+      "expected": 119617.39,
+      "pass": true
+    },
+    {
+      "name": "Annual stock is closing stock rather than summed months",
+      "actual": 100548.84,
+      "expected": 100548.84,
+      "pass": true
+    },
+    {
+      "name": "Concurrent reads and sales have no errors",
+      "actual": true,
+      "expected": true,
+      "pass": true
+    },
+    {
+      "name": "Mixed read/write sales preserve exact covered demand",
+      "actual": 10,
+      "expected": 10,
+      "pass": true
+    }
+  ],
+  "coldBurst": {
+    "concurrency": 20,
+    "elapsedMs": 208,
+    "success": 20,
+    "errors": []
+  },
+  "stages": [
+    {
+      "kind": "mixed-read",
+      "concurrency": 1,
+      "requests": 598,
+      "elapsedMs": 8004,
+      "requestsPerSecond": 74.7,
+      "p50Ms": 10,
+      "p95Ms": 29,
+      "p99Ms": 37,
+      "maxMs": 41,
+      "statuses": {
+        "200": 598
+      },
+      "errors": [],
+      "eventLoopP95Ms": 20,
+      "cpuMs": 3968,
+      "rssMiB": 133
+    },
+    {
+      "kind": "mixed-read",
+      "concurrency": 5,
+      "requests": 2661,
+      "elapsedMs": 8023,
+      "requestsPerSecond": 331.7,
+      "p50Ms": 12,
+      "p95Ms": 32,
+      "p99Ms": 37,
+      "maxMs": 46,
+      "statuses": {
+        "200": 2661
+      },
+      "errors": [],
+      "eventLoopP95Ms": 12,
+      "cpuMs": 15157,
+      "rssMiB": 142
+    },
+    {
+      "kind": "mixed-read",
+      "concurrency": 10,
+      "requests": 3448,
+      "elapsedMs": 8033,
+      "requestsPerSecond": 429.2,
+      "p50Ms": 21,
+      "p95Ms": 41,
+      "p99Ms": 45,
+      "maxMs": 91,
+      "statuses": {
+        "200": 3448
+      },
+      "errors": [],
+      "eventLoopP95Ms": 14,
+      "cpuMs": 18110,
+      "rssMiB": 158
+    },
+    {
+      "kind": "mixed-read",
+      "concurrency": 20,
+      "requests": 3643,
+      "elapsedMs": 8030,
+      "requestsPerSecond": 453.7,
+      "p50Ms": 42,
+      "p95Ms": 60,
+      "p99Ms": 66,
+      "maxMs": 144,
+      "statuses": {
+        "200": 3643
+      },
+      "errors": [],
+      "eventLoopP95Ms": 19,
+      "cpuMs": 16811,
+      "rssMiB": 200
+    }
+  ],
+  "limitations": [
+    "Local API process and synthetic empty-database fixtures; no real-server capacity or browser rendering claim.",
+    "Closed-loop concurrency without user think time, not a maximum-capacity certification."
+  ],
+  "cleanedUp": true,
+  "passed": true,
+  "completedAt": "2026-10-16T21:32:04.393Z",
+  "baseCommit": "442ea5d202735a159ae053070aa84a92209e9b5f",
+  "testedWorkingTree": true,
+  "migrations": [
+    "0_baseline",
+    "1_database_logic",
+    "2_snapshot_consistency"
+  ],
+  "snapshotMigrationSha256": "64b50d6ba27643e6ce1fdd77d7ace6a01b04a83ee0ff1cfbe6f75aa7d7d712b1"
+}

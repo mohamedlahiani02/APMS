@@ -1,317 +1,566 @@
-'use client';
+"use client";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  getDashboard,
+  getDrilldown,
+  type AnalyticsScope,
+} from "@/features/analytics/services/analyticsService";
+import { lookupFamilles } from "@/features/familles/services/familleService";
+import { lookupMagasins } from "@/features/magasins/services/magasinService";
+import { lookupFournisseurs } from "@/features/fournisseurs/services/fournisseurService";
+import { formatDinar, todayISO } from "@/utils";
+import { MONTHS } from "@/lib/constants";
+import SearchSelect from "@/components/ui/SearchSelect";
+import Select from "@/components/ui/Select";
+import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
+import ApiErrorBanner from "@/components/shared/ApiErrorBanner";
+import { ClientTable } from "@/components/shared/DataTable";
+import type { DashboardKpiResponse } from "@/types";
 
-import { useQuery } from '@tanstack/react-query';
-import { ShoppingCart, DollarSign, TrendingUp, Package, ChevronDown, ChevronUp } from 'lucide-react';
-import { getDashboard, getDrilldown } from '@/features/analytics/services/analyticsService';
-import { formatDinar } from '@/utils';
-import { familleBadgeColor, MONTHS } from '@/lib/constants';
-import LoadingSpinner from '@/components/shared/LoadingSpinner';
-import ApiErrorBanner from '@/components/shared/ApiErrorBanner';
-import Badge from '@/components/ui/Badge';
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/store/authStore';
-
-const now = new Date();
-const currentYear = now.getFullYear();
-const currentMonthIndex = now.getMonth();
-
-function KpiCard({
-  label,
-  value,
-  icon: Icon,
-  color,
+function SupplierStock({
+  id,
+  year,
+  month,
+  scope,
 }: {
-  label: string;
-  value: number;
-  icon: React.ElementType;
-  color: string;
+  id: string;
+  year: number;
+  month: number;
+  scope: AnalyticsScope;
 }) {
+  const query = useQuery({
+    queryKey: ["analytics", "drilldown", id, year, month, scope],
+    queryFn: () => getDrilldown("fournisseurs", id, { year, month, ...scope }),
+  });
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 flex items-center gap-4">
-      <div className={`rounded-xl p-3 ${color}`}>
-        <Icon size={22} className="text-white" />
-      </div>
-      <div>
-        <p className="text-sm text-gray-500">{label}</p>
-        <p className="text-2xl font-bold text-gray-900 mt-0.5">{formatDinar(value)}</p>
-      </div>
+    <div className="space-y-3">
+      <ApiErrorBanner error={query.error} />
+      {query.isLoading ? (
+        <p role="status">Chargement…</p>
+      ) : (
+        query.data && (
+          <>
+            <p className="text-sm text-gray-500">
+              {MONTHS[month - 1]} {year} · même périmètre que le tableau de bord
+            </p>
+            <ClientTable
+              label="Stock du fournisseur"
+              rows={query.data.items}
+              rowKey={(r) =>
+                [r.produitId, r.magasinId, r.fournisseurId].join("-")
+              }
+              searchText={(r) =>
+                r.produitReference +
+                " " +
+                r.produitDesignation +
+                " " +
+                r.magasinNom
+              }
+              columns={[
+                {
+                  key: "reference",
+                  label: "Référence",
+                  sortValue: (r) => r.produitReference,
+                  render: (r) => (
+                    <span className="font-mono">{r.produitReference}</span>
+                  ),
+                },
+                {
+                  key: "designation",
+                  label: "Produit",
+                  sortValue: (r) => r.produitDesignation,
+                  render: (r) => r.produitDesignation,
+                },
+                {
+                  key: "magasin",
+                  label: "Magasin",
+                  sortValue: (r) => r.magasinNom,
+                  render: (r) => r.magasinNom,
+                },
+                {
+                  key: "qte",
+                  label: "Quantité",
+                  numeric: true,
+                  sortValue: (r) => r.qteStock,
+                  render: (r) => r.qteStock.toLocaleString("fr-TN"),
+                },
+                {
+                  key: "cmup",
+                  label: "Coût moyen HT",
+                  numeric: true,
+                  sortValue: (r) => r.cmupCumule,
+                  render: (r) =>
+                    r.cmupCumule == null ? "—" : formatDinar(r.cmupCumule),
+                },
+                {
+                  key: "value",
+                  label: "Valeur HT",
+                  numeric: true,
+                  sortValue: (r) => r.totalValeur,
+                  render: (r) => formatDinar(r.totalValeur),
+                },
+                {
+                  key: "deficit",
+                  label: "Déficit",
+                  numeric: true,
+                  sortValue: (r) => r.qteDeficit,
+                  render: (r) => r.qteDeficit.toLocaleString("fr-TN"),
+                },
+              ]}
+            />
+          </>
+        )
+      )}
     </div>
   );
 }
-
-function FournisseurDrilldown({
-  fournisseurId,
-  fournisseurNom,
-  year,
-  month,
-}: {
-  fournisseurId: string;
-  fournisseurNom: string;
-  year: number;
-  month: number;
-}) {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['analytics', 'drilldown', 'fournisseurs', fournisseurId, year, month],
-    queryFn: () => getDrilldown('fournisseurs', fournisseurId, { year, month }),
-  });
-
+function Kpis({ data }: { data: DashboardKpiResponse }) {
+  const metrics = [
+    {
+      key: "totalAchat" as const,
+      label: "Achats TTC",
+      color: "border-l-blue-500",
+    },
+    {
+      key: "totalVente" as const,
+      label: "Ventes TTC",
+      color: "border-l-emerald-500",
+    },
+    {
+      key: "marge" as const,
+      label: "Écart ventes − achats TTC",
+      color: "border-l-violet-500",
+    },
+    {
+      key: "totalValeur" as const,
+      label: "Valeur du stock HT",
+      color: "border-l-amber-500",
+    },
+  ];
   return (
-    <tr>
-      <td colSpan={5} className="px-0 py-0">
-        <div className="bg-gray-50 border-t border-gray-100 px-6 py-4">
-          <p className="text-sm font-semibold text-gray-700 mb-3">Détail stock — {fournisseurNom}</p>
-          {error ? <ApiErrorBanner error={error} /> : isLoading ? (
-            <div className="flex justify-center py-4">
-              <LoadingSpinner />
-            </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-gray-500 text-xs uppercase">
-                  <th className="text-left pb-2 pr-4 font-medium">Réf. Produit</th>
-                  <th className="text-right pb-2 pr-4 font-medium">Qté Stockée</th>
-                  <th className="text-left pb-2 pr-4 font-medium">Magasin</th>
-                  <th
-                    className="text-right pb-2 pr-4 font-medium"
-                    title="Coût moyen pondéré HT cumulé jusqu'à la fin du mois — base de valorisation du stock."
-                  >
-                    CMUP Cumulé (DT)
-                  </th>
-                  <th className="text-right pb-2 font-medium">Valeur Stockée (DT)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {data?.items.map((item, i) => (
-                  <tr key={`${item.produitId}-${item.magasinId}-${i}`} className="text-gray-700">
-                    <td className="py-2 pr-4 font-medium text-gray-900">{item.produitReference}</td>
-                    <td className="py-2 pr-4 text-right">{item.qteStock}</td>
-                    <td className="py-2 pr-4">{item.magasinNom}</td>
-                    <td className="py-2 pr-4 text-right">{item.cmupCumule == null ? '—' : formatDinar(item.cmupCumule)}</td>
-                    <td className="py-2 text-right">{formatDinar(item.totalValeur)}</td>
-                  </tr>
-                ))}
-                {data?.items.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="py-3 text-center text-gray-400 text-xs">
-                      Aucun stock pour cette période
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </td>
-    </tr>
+    <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4">
+      {metrics.map((m) => {
+        const previous = data.previousPeriod?.[m.key];
+        const delta = previous == null ? null : data.totals[m.key] - previous;
+        return (
+          <div
+            key={m.key}
+            className={
+              "rounded-xl border border-gray-200 border-l-4 bg-white p-5 " +
+              m.color
+            }
+          >
+            <p className="text-sm text-gray-600">{m.label}</p>
+            <p className="text-2xl font-bold tabular-nums mt-2 break-words">
+              {formatDinar(data.totals[m.key])}
+            </p>
+            {previous != null && (
+              <p className="text-xs text-gray-500 mt-3">
+                Mois précédent : {formatDinar(previous)}
+                <br />
+                Variation : {delta! > 0 ? "+" : ""}
+                {formatDinar(delta)}
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
-
 export default function DashboardPage() {
-  const [year, setYear] = useState(currentYear);
-  const [monthIndex, setMonthIndex] = useState(currentMonthIndex);
-  const [expandedFournisseurId, setExpandedFournisseurId] = useState<string | null>(null);
-  const user = useAuthStore((s) => s.user);
-  const router = useRouter();
-
-  useEffect(() => {
-    if (user?.role === 'SECRETAIRE') {
-      router.replace('/transactions');
-    }
-  }, [user, router]);
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['analytics', 'dashboard', year, monthIndex + 1],
-    queryFn: () => getDashboard({ year, month: monthIndex + 1 }),
-    enabled: user?.role === 'ADMIN',
+  const today = todayISO(),
+    currentYear = Number(today.slice(0, 4)),
+    currentMonth = Number(today.slice(5, 7));
+  const [year, setYear] = useState(currentYear),
+    [month, setMonth] = useState(currentMonth);
+  const [magasinId, setMagasinId] = useState(""),
+    [familleId, setFamilleId] = useState(""),
+    [fournisseurId, setFournisseurId] = useState("");
+  const [dimension, setDimension] = useState<
+    "fournisseurs" | "familles" | "magasins"
+  >("fournisseurs");
+  const [supplier, setSupplier] = useState<{ id: string; nom: string } | null>(
+    null,
+  );
+  const scope = {
+    magasinId: magasinId || undefined,
+    familleId: familleId || undefined,
+    fournisseurId: fournisseurId || undefined,
+  };
+  const query = useQuery({
+    queryKey: ["analytics", "dashboard", year, month, scope],
+    queryFn: () => getDashboard({ year, month, ...scope }),
   });
-
-  if (isLoading || user?.role === 'SECRETAIRE') return <LoadingSpinner fullPage />;
-
-  const kpi = data?.totals;
-  const parFournisseur = data?.parFournisseur ?? [];
-  const parFamille = data?.parFamille ?? [];
-  const topVendues = data?.topFamillesParVente ?? [];
-  const topStockees = data?.topFamillesParValeur ?? [];
-
-  const maxVente = Math.max(...topVendues.map((r) => r.totalVente ?? 0), 1);
-  const maxStock = Math.max(...topStockees.map((r) => r.totalValeur ?? 0), 1);
-
+  const data = query.data;
+  const selectedCount = [magasinId, familleId, fournisseurId].filter(
+    Boolean,
+  ).length;
   return (
-    <div className="w-full space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard KPI</h1>
-          <p className="text-gray-500 text-sm mt-1">Reporting mensuel consolidé</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <select
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold">Tableau de bord</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          {MONTHS[month - 1]} {year} ·{" "}
+          {selectedCount
+            ? selectedCount + " filtre(s) de périmètre"
+            : "Tous les magasins, familles et fournisseurs"}
+        </p>
+      </div>
+      <section
+        aria-label="Période et périmètre des indicateurs"
+        className="rounded-xl border bg-white p-4 space-y-3"
+      >
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+          <Select
+            label="Année"
             value={year}
             onChange={(e) => {
-              const nextYear = Number(e.target.value);
-              setYear(nextYear);
-              if (nextYear === currentYear && monthIndex > currentMonthIndex) setMonthIndex(currentMonthIndex);
+              const y = Number(e.target.value);
+              setYear(y);
+              if (y === currentYear && month > currentMonth)
+                setMonth(currentMonth);
+              setSupplier(null);
             }}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
-          >
-            {[currentYear - 2, currentYear - 1, currentYear].map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-          <select
-            value={monthIndex}
-            onChange={(e) => setMonthIndex(Number.parseInt(e.target.value, 10))}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
-          >
-            {MONTHS.map((m, i) => (
-              <option key={m} value={i} disabled={year === currentYear && i > currentMonthIndex}>
-                {m}
-              </option>
-            ))}
-          </select>
+            options={[currentYear - 2, currentYear - 1, currentYear].map(
+              (y) => ({ value: y, label: String(y) }),
+            )}
+          />
+          <div>
+            <label
+              htmlFor="kpi-month"
+              className="block text-sm font-medium mb-1"
+            >
+              Mois
+            </label>
+            <select
+              id="kpi-month"
+              value={month}
+              onChange={(e) => {
+                setMonth(Number(e.target.value));
+                setSupplier(null);
+              }}
+              className="w-full rounded-lg border px-3 py-2 bg-white text-sm"
+            >
+              {MONTHS.map((m, i) => (
+                <option
+                  key={m}
+                  value={i + 1}
+                  disabled={year === currentYear && i + 1 > currentMonth}
+                >
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+          <SearchSelect
+            label="Magasin"
+            value={magasinId}
+            onChange={(id) => {
+              setMagasinId(id);
+              setSupplier(null);
+            }}
+            onSearch={lookupMagasins}
+            queryKey="magasins"
+            getId={(r) => r.id}
+            getLabel={(r) => r.label}
+            placeholder="Tous les magasins"
+          />
+          <SearchSelect
+            label="Famille"
+            value={familleId}
+            onChange={(id) => {
+              setFamilleId(id);
+              setSupplier(null);
+            }}
+            onSearch={lookupFamilles}
+            queryKey="familles"
+            getId={(r) => r.id}
+            getLabel={(r) => r.label}
+            placeholder="Toutes les familles"
+          />
+          <SearchSelect
+            label="Fournisseur"
+            value={fournisseurId}
+            onChange={(id) => {
+              setFournisseurId(id);
+              setSupplier(null);
+            }}
+            onSearch={lookupFournisseurs}
+            queryKey="fournisseurs"
+            getId={(r) => r.id}
+            getLabel={(r) => r.label}
+            placeholder="Tous les fournisseurs"
+          />
         </div>
-      </div>
-
-      <ApiErrorBanner error={error} />
-      {kpi && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          <KpiCard label="Total Achats TTC" value={kpi.totalAchat} icon={ShoppingCart} color="bg-blue-500" />
-          <KpiCard label="Total Ventes TTC" value={kpi.totalVente} icon={DollarSign} color="bg-green-500" />
-          <KpiCard label="Marge Nette" value={kpi.marge} icon={TrendingUp} color="bg-purple-500" />
-          <KpiCard label="Total valeur stockée" value={kpi.totalValeur} icon={Package} color="bg-orange-500" />
+        <div className="flex flex-wrap justify-between items-center gap-3">
+          <p className="text-xs text-gray-500">
+            Ce périmètre s’applique à tous les indicateurs, classements et
+            détails.
+          </p>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              setYear(currentYear);
+              setMonth(currentMonth);
+              setMagasinId("");
+              setFamilleId("");
+              setFournisseurId("");
+              setSupplier(null);
+            }}
+          >
+            Réinitialiser
+          </Button>
+        </div>
+      </section>
+      <ApiErrorBanner error={query.error} />
+      {query.isLoading && (
+        <div
+          role="status"
+          className="rounded-xl border bg-white p-8 text-center text-gray-500"
+        >
+          Chargement des indicateurs…
         </div>
       )}
-
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-800">Par Fournisseur</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 text-gray-500 text-xs uppercase">
-                <th className="text-left px-5 py-3">Fournisseur</th>
-                <th className="text-right px-5 py-3">Total Achat TTC</th>
-                <th className="text-right px-5 py-3">Total Vente TTC</th>
-                <th className="text-right px-5 py-3">Marge</th>
-                <th className="px-5 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {parFournisseur.map((row) => {
-                const isExpanded = expandedFournisseurId === row.fournisseurId;
-                return (
-                  <React.Fragment key={row.fournisseurId}>
-                    <tr
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => setExpandedFournisseurId(isExpanded ? null : row.fournisseurId)}
-                    >
-                      <td className="px-5 py-3 font-medium text-gray-900">{row.fournisseurNom}</td>
-                      <td className="px-5 py-3 text-right text-gray-600">{formatDinar(row.totalAchat)}</td>
-                      <td className="px-5 py-3 text-right text-green-600 font-medium">{formatDinar(row.totalVente)}</td>
-                      <td className="px-5 py-3 text-right text-gray-600">{formatDinar(row.marge)}</td>
-                      <td className="px-5 py-3 text-gray-400">{isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</td>
-                    </tr>
-                    {isExpanded && (
-                      <FournisseurDrilldown
-                        key={`drilldown-${row.fournisseurId}`}
-                        fournisseurId={row.fournisseurId}
-                        fournisseurNom={row.fournisseurNom}
-                        year={year}
-                        month={monthIndex + 1}
-                      />
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-800">Top Familles Vendues</h2>
-          </div>
-          <div className="p-5 space-y-3">
-            {topVendues.map((row, i) => (
-              <div key={row.familleId}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400 w-4">#{i + 1}</span>
-                    <Badge className={familleBadgeColor(row.familleNom)}>{row.familleNom}</Badge>
-                  </div>
-                  <span className="text-sm font-semibold text-gray-900">{formatDinar(row.totalVente ?? 0)}</span>
-                </div>
-                <div className="ml-6 bg-gray-100 rounded-full h-1.5">
-                  <div
-                    className="bg-green-500 h-1.5 rounded-full transition-all"
-                    style={{ width: `${Math.round(((row.totalVente ?? 0) / maxVente) * 100)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-800">Familles plus Stockées</h2>
-          </div>
-          <div className="p-5 space-y-3">
-            {topStockees.map((row, i) => (
-              <div key={row.familleId}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400 w-4">#{i + 1}</span>
-                    <Badge className={familleBadgeColor(row.familleNom)}>{row.familleNom}</Badge>
-                  </div>
-                  <span className="text-sm font-semibold text-gray-900">{formatDinar(row.totalValeur ?? 0)}</span>
-                </div>
-                <div className="ml-6 bg-gray-100 rounded-full h-1.5">
-                  <div
-                    className="bg-blue-500 h-1.5 rounded-full transition-all"
-                    style={{ width: `${Math.round(((row.totalValeur ?? 0) / maxStock) * 100)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-800">Par Famille</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 text-gray-500 text-xs uppercase">
-                <th className="text-left px-5 py-3">Famille</th>
-                <th className="text-right px-5 py-3">Total Achat TTC</th>
-                <th className="text-right px-5 py-3">Total Vente TTC</th>
-                <th className="text-right px-5 py-3">Valeur Stocks</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {parFamille.map((row) => (
-                <tr key={row.familleId} className="hover:bg-gray-50">
-                  <td className="px-5 py-3">
-                    <Badge className={familleBadgeColor(row.familleNom)}>{row.familleNom}</Badge>
-                  </td>
-                  <td className="px-5 py-3 text-right text-gray-600">{formatDinar(row.totalAchat)}</td>
-                  <td className="px-5 py-3 text-right text-green-600 font-medium">{formatDinar(row.totalVente)}</td>
-                  <td className="px-5 py-3 text-right text-gray-600">{formatDinar(row.totalValeur)}</td>
-                </tr>
+      {data && (
+        <>
+          <Kpis data={data} />
+          <p className="text-xs text-gray-500">
+            Écart = ventes TTC − achats TTC ; les charges d’exploitation ne sont
+            pas incluses. Valeur du stock à la fin de la période, au coût moyen
+            HT. Comparaison avec{" "}
+            {data.previousPeriod
+              ? MONTHS[data.previousPeriod.month - 1] +
+                " " +
+                data.previousPeriod.year
+              : "le mois précédent"}
+            .
+          </p>
+          {data.totals.nbTx === 0 && (
+            <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
+              Aucune ligne d’achat ou de vente sur cette période et ce
+              périmètre. Un stock historique peut néanmoins être présent.
+            </p>
+          )}
+          <section className="space-y-3">
+            <div
+              className="flex flex-wrap gap-2"
+              aria-label="Ventilation des indicateurs"
+            >
+              {(["fournisseurs", "familles", "magasins"] as const).map((d) => (
+                <Button
+                  key={d}
+                  variant={dimension === d ? "primary" : "secondary"}
+                  aria-pressed={dimension === d}
+                  onClick={() => setDimension(d)}
+                >
+                  {d === "fournisseurs"
+                    ? "Par fournisseur"
+                    : d === "familles"
+                      ? "Par famille"
+                      : "Par magasin"}
+                </Button>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </div>
+            {dimension === "fournisseurs" ? (
+              <ClientTable
+                label="Indicateurs par fournisseur"
+                rows={data.parFournisseur}
+                rowKey={(r) => r.fournisseurId}
+                searchText={(r) => r.fournisseurNom}
+                columns={[
+                  {
+                    key: "name",
+                    label: "Fournisseur",
+                    sortValue: (r) => r.fournisseurNom,
+                    render: (r) => r.fournisseurNom,
+                  },
+                  {
+                    key: "achat",
+                    label: "Achats TTC",
+                    numeric: true,
+                    sortValue: (r) => r.totalAchat,
+                    render: (r) => formatDinar(r.totalAchat),
+                  },
+                  {
+                    key: "vente",
+                    label: "Ventes TTC",
+                    numeric: true,
+                    sortValue: (r) => r.totalVente,
+                    render: (r) => formatDinar(r.totalVente),
+                  },
+                  {
+                    key: "marge",
+                    label: "Écart TTC",
+                    numeric: true,
+                    sortValue: (r) => r.marge,
+                    render: (r) => formatDinar(r.marge),
+                  },
+                  {
+                    key: "detail",
+                    label: "Détail",
+                    render: (r) => (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() =>
+                          setSupplier({
+                            id: r.fournisseurId,
+                            nom: r.fournisseurNom,
+                          })
+                        }
+                      >
+                        Voir le stock
+                      </Button>
+                    ),
+                  },
+                ]}
+              />
+            ) : dimension === "familles" ? (
+              <ClientTable
+                label="Indicateurs par famille"
+                rows={data.parFamille}
+                rowKey={(r) => r.familleId}
+                searchText={(r) => r.familleNom}
+                columns={[
+                  {
+                    key: "name",
+                    label: "Famille",
+                    sortValue: (r) => r.familleNom,
+                    render: (r) => r.familleNom,
+                  },
+                  {
+                    key: "achat",
+                    label: "Achats TTC",
+                    numeric: true,
+                    sortValue: (r) => r.totalAchat,
+                    render: (r) => formatDinar(r.totalAchat),
+                  },
+                  {
+                    key: "vente",
+                    label: "Ventes TTC",
+                    numeric: true,
+                    sortValue: (r) => r.totalVente,
+                    render: (r) => formatDinar(r.totalVente),
+                  },
+                  {
+                    key: "stock",
+                    label: "Stock HT",
+                    numeric: true,
+                    sortValue: (r) => r.totalValeur,
+                    render: (r) => formatDinar(r.totalValeur),
+                  },
+                ]}
+              />
+            ) : (
+              <ClientTable
+                label="Indicateurs par magasin"
+                rows={data.parMagasin}
+                rowKey={(r) => r.magasinId}
+                searchText={(r) => r.magasinNom}
+                columns={[
+                  {
+                    key: "name",
+                    label: "Magasin",
+                    sortValue: (r) => r.magasinNom,
+                    render: (r) => r.magasinNom,
+                  },
+                  {
+                    key: "achat",
+                    label: "Achats TTC",
+                    numeric: true,
+                    sortValue: (r) => r.totalAchat,
+                    render: (r) => formatDinar(r.totalAchat),
+                  },
+                  {
+                    key: "vente",
+                    label: "Ventes TTC",
+                    numeric: true,
+                    sortValue: (r) => r.totalVente,
+                    render: (r) => formatDinar(r.totalVente),
+                  },
+                  {
+                    key: "stock",
+                    label: "Stock HT",
+                    numeric: true,
+                    sortValue: (r) => r.totalValeur,
+                    render: (r) => formatDinar(r.totalValeur),
+                  },
+                ]}
+              />
+            )}
+          </section>
+          <details className="rounded-xl border bg-white p-4">
+            <summary className="cursor-pointer font-semibold">
+              Classements des familles — 5 premières
+            </summary>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+              <section>
+                <h2 className="font-medium mb-2">Ventes TTC</h2>
+                {data.topFamillesParVente.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    Aucune donnée sur cette période.
+                  </p>
+                ) : (
+                  <ol className="divide-y">
+                    {data.topFamillesParVente.map((r) => (
+                      <li
+                        key={r.familleId}
+                        className="flex justify-between gap-3 py-3 text-sm"
+                      >
+                        <span>{r.familleNom}</span>
+                        <span className="tabular-nums font-semibold">
+                          {formatDinar(r.totalVente)}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </section>
+              <section>
+                <h2 className="font-medium mb-2">Valeur du stock HT</h2>
+                {data.topFamillesParValeur.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    Aucune donnée sur cette période.
+                  </p>
+                ) : (
+                  <ol className="divide-y">
+                    {data.topFamillesParValeur.map((r) => (
+                      <li
+                        key={r.familleId}
+                        className="flex justify-between gap-3 py-3 text-sm"
+                      >
+                        <span>{r.familleNom}</span>
+                        <span className="tabular-nums font-semibold">
+                          {formatDinar(r.totalValeur)}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </section>
+            </div>
+          </details>
+        </>
+      )}
+      <Modal
+        open={!!supplier}
+        onClose={() => setSupplier(null)}
+        title={"Stock — " + (supplier?.nom ?? "")}
+        size="xl"
+      >
+        {supplier && (
+          <SupplierStock
+            id={supplier.id}
+            year={year}
+            month={month}
+            scope={scope}
+          />
+        )}
+      </Modal>
     </div>
   );
 }

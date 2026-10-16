@@ -1,7 +1,8 @@
+import { dateRangeIsOrdered, dateRangeError } from "../common/date-schema.js";
 import { z } from "zod";
 import { pageQuerySchema } from "../common/pagination.js";
 
-import { isoDateSchema } from '../common/date-schema.js';
+import { isoDateSchema } from "../common/date-schema.js";
 export { isoDateSchema };
 
 export const blAchatLigneInputSchema = z.object({
@@ -29,12 +30,15 @@ export const updateBlAchatSchema = z.object({
 });
 export type UpdateBlAchatInput = z.infer<typeof updateBlAchatSchema>;
 
-export const listBlAchatsQuerySchema = pageQuerySchema.extend({
-  magasinId: z.string().uuid().optional(),
-  fournisseurId: z.string().uuid().optional(),
-  dateFrom: isoDateSchema.optional(),
-  dateTo: isoDateSchema.optional(),
-});
+export const listBlAchatsQuerySchema = pageQuerySchema
+  .extend({
+    consumed: z.enum(["yes", "no"]).optional(),
+    magasinId: z.string().uuid().optional(),
+    fournisseurId: z.string().uuid().optional(),
+    dateFrom: isoDateSchema.optional(),
+    dateTo: isoDateSchema.optional(),
+  })
+  .refine(dateRangeIsOrdered, dateRangeError);
 export type ListBlAchatsQuery = z.infer<typeof listBlAchatsQuerySchema>;
 
 export const idParamSchema = z.object({ id: z.string().uuid() });

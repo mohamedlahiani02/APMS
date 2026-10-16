@@ -5,8 +5,8 @@ Work was performed only in the new TypeScript APMS repository. The Java/Spring B
 ## Confirmed
 
 - Backend TypeScript checking and production compilation pass.
-- All 88 tests in 13 Vitest suites pass against the local restored PostgreSQL 15 database on port 5433. HTTP coverage assembles the same application as the real server and checks all twelve domains, both roles, CRUD, stock draw/reverse/redraw, oversell, BL guards, sales search, audit, Excel export, first-login password changes and concurrent sale/refresh requests.
-- Frontend lint and Next.js production build pass. All application routes are generated, including stock and audit.
+- All 93 tests in 13 Vitest suites pass against the local restored PostgreSQL 15 database on port 5433. HTTP coverage assembles the same application as the real server and checks all twelve domains, both roles, CRUD, stock draw/reverse/redraw, oversell, BL guards, sales search, audit, Excel export, first-login password changes and concurrent sale/refresh requests.
+- Frontend lint and Next.js production build pass. Fourteen isolated frontend interaction tests in five Vitest suites also pass. All application routes are generated, including stock and audit.
 - Both Prisma migrations were deployed into a newly created scratch database. It contained all five original stored routines, two triggers and 40 CHECK constraints; get_kpi_lines_for_month executed successfully. Only that scratch database was removed. The supplemental migration also deployed successfully against the local restored database.
 - The original applied baseline was not edited. Production business rows were not reset or migrated.
 
@@ -18,8 +18,20 @@ The legacy visual-style repository and the live production UI were not inspected
 
 ## Publication and deployment
 
-GitHub origin access was confirmed. The repository is public and had no remote branches when inspected. No source or sensitive handover data was published by this verification. GitHub Actions cannot be claimed as passing until the workflow is published and actually runs. Server cutover remains outside the rewrite scope.
+The user authorized GitHub publication. The pre-UX baseline was pushed to main at 3b52d6f and its GitHub Actions checks succeeded. The approved UI improvements are developed on codex/ui-ux-improvements. Sensitive handover data and local credentials remain excluded. Server cutover remains outside the rewrite scope.
 
 ## Container preview follow-up
 
 The full TypeScript stack was built and started in Docker on 2026-10-16. apms-rewrite-frontend, apms-rewrite-backend and apms-rewrite-postgres reported healthy on loopback ports 3100, 3101 and 5433. The login page, API database readiness, separate local demo administrator login, products, stock, sales, dashboard and combined Excel export all passed through the web container's API proxy. The legacy Java containers were left running unchanged. Demo credentials are stored only in the ignored backend/.env.local file and excluded from image contexts. Embedded browser access remains blocked by a saved permission setting; visual acceptance is still pending.
+
+## Approved UI improvements
+
+See UI_UX.md and the API contract extension for scope and remaining visual acceptance. Backend HTTP regression tests confirm combined filters, identical filtered Excel results, ordered/valid date ranges and scoped KPI comparisons/drilldown. Frontend interaction tests exercise table pagination/sorting, calendar presets, keyboard/pointer selectors and guarded form closure, including line buttons and read-only pagination. The test runner emits a React act scheduling warning in one passing modal test; no visual browser verification is implied.
+
+The updated UI/API Docker images also compiled successfully and all three rewrite containers became healthy. Post-rebuild HTTP smoke checks passed through the frontend proxy for login, readiness, references, users, stock, purchases, sales, audit, KPI scope/comparison, invalid date ranges, filtered single-sheet Excel and full two-sheet Excel. Only smoke-test sessions were logged out; the demo administrator remains available.
+
+## Follow-up: audit dates, SIA logo and independent load checks
+
+93 backend tests and 14 frontend tests pass. QA_LOAD.md documents 41 independent numerical/scenario assertions and 10350 successful load requests. Two inherited reporting/concurrency defects were reproduced, corrected in a new migration, and regression-tested. The new migration was first verified in disposable databases, then deployed only to the existing local APMS development database. The production server was not contacted. The new day/calendar-week/range controls preserve combined action/entity filters, and the supplied SIA logo is included unchanged. The proposed future image delivery/encapsulation work remains deferred.
+
+The final preview rebuild and proxy smoke tests passed, and all three local services are healthy. A read-only check of six monetary/stock invariants on restored local data found zero mismatches. The final load run processed 10,350 mixed read requests without error; p95 at concurrency 20 was 60 ms on this development machine. Visual browser acceptance remains pending due to the saved permission denial.

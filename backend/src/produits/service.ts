@@ -1,7 +1,11 @@
+import { listOrder } from "../common/list-filters.js";
 import type { produits as ProduitRow } from "@prisma/client";
 import { prisma, Prisma } from "../db.js";
 import { audit } from "../common/audit.js";
-import { produitReferenceDuplicate, ResourceNotFoundException } from "../common/errors.js";
+import {
+  produitReferenceDuplicate,
+  ResourceNotFoundException,
+} from "../common/errors.js";
 import { toPagedResponse, type LookupQuery } from "../common/pagination.js";
 import type { CurrentUser } from "../common/current-user.js";
 import type {
@@ -42,12 +46,17 @@ export async function listProduits(query: ProduitListQuery) {
     deleted_at: null,
     ...searchWhere(query.search),
     ...(query.familleId ? { famille_id: query.familleId } : {}),
+    ...(query.isActive !== undefined ? { is_active: query.isActive } : {}),
   };
   const [rows, total] = await Promise.all([
     prisma.produits.findMany({
       where,
       include: { familles: { select: { nom: true } } },
-      orderBy: { reference: "asc" },
+      orderBy: listOrder(
+        query,
+        { reference: "reference", designation: "designation" },
+        "reference",
+      ),
       skip: query.page * query.size,
       take: query.size,
     }),
@@ -56,17 +65,26 @@ export async function listProduits(query: ProduitListQuery) {
   return toPagedResponse(rows.map(toResponse), total, query);
 }
 
-export async function lookupProduits(query: LookupQuery): Promise<ProduitLookupItem[]> {
+export async function lookupProduits(
+  query: LookupQuery,
+): Promise<ProduitLookupItem[]> {
   const where = { deleted_at: null, ...searchWhere(query.q) };
   const rows = await prisma.produits.findMany({
     where,
     orderBy: { reference: "asc" },
     take: query.limit,
   });
-  return rows.map((row) => ({ id: row.id, reference: row.reference, label: row.designation }));
+  return rows.map((row) => ({
+    id: row.id,
+    reference: row.reference,
+    label: row.designation,
+  }));
 }
 
-async function findActiveOrThrow(db: Db, id: string): Promise<ProduitWithFamille> {
+async function findActiveOrThrow(
+  db: Db,
+  id: string,
+): Promise<ProduitWithFamille> {
   const row = await db.produits.findFirst({
     where: { id, deleted_at: null },
     include: { familles: { select: { nom: true } } },
@@ -76,7 +94,9 @@ async function findActiveOrThrow(db: Db, id: string): Promise<ProduitWithFamille
 }
 
 async function findActiveFamilleOrThrow(db: Db, familleId: string) {
-  const famille = await db.familles.findFirst({ where: { id: familleId, deleted_at: null } });
+  const famille = await db.familles.findFirst({
+    where: { id: familleId, deleted_at: null },
+  });
   if (!famille) throw new ResourceNotFoundException("famille", familleId);
   return famille;
 }
@@ -132,7 +152,10 @@ export async function updateProduitTx(
   const current = await findActiveOrThrow(tx, id);
 
   const changes: Record<string, unknown> = {};
-  if (data.designation !== undefined && data.designation !== current.designation) {
+  if (
+    data.designation !== undefined &&
+    data.designation !== current.designation
+  ) {
     changes.designation = { from: current.designation, to: data.designation };
   }
   if (data.isActive !== undefined && data.isActive !== current.is_active) {
@@ -183,7 +206,11 @@ export async function updateProduit(
  * familles -> produits), so this simply soft-deletes without checking dependent rows
  * (stock/vente/bl_achat lines keep referencing the produit_id regardless).
  */
-export async function deleteProduitTx(tx: Db, id: string, actor: CurrentUser | null): Promise<void> {
+export async function deleteProduitTx(
+  tx: Db,
+  id: string,
+  actor: CurrentUser | null,
+): Promise<void> {
   const current = await findActiveOrThrow(tx, id);
 
   await tx.produits.update({
@@ -199,6 +226,9 @@ export async function deleteProduitTx(tx: Db, id: string, actor: CurrentUser | n
   });
 }
 
-export async function deleteProduit(id: string, actor: CurrentUser | null): Promise<void> {
+export async function deleteProduit(
+  id: string,
+  actor: CurrentUser | null,
+): Promise<void> {
   return prisma.$transaction((tx) => deleteProduitTx(tx, id, actor));
 }
