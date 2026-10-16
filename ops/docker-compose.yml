@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: apms-rewrite-postgres
+    environment:
+      POSTGRES_DB: apms
+      POSTGRES_USER: apms_user
+      POSTGRES_PASSWORD: apms_dev_local_only
+      TZ: UTC
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - apms_rewrite_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apms_user -d apms"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  apms_rewrite_pg_data:
+    name: apms_rewrite_pg_data

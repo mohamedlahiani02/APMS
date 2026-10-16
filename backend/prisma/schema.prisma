@@ -1,0 +1,449 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model analytics_snapshot_state {
+  annee        Int
+  mois         Int
+  statut       String   @default("A_RECALCULER") @db.VarChar(20)
+  derniere_maj DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([annee, mois])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model analytics_stock_snapshot {
+  annee           Int
+  mois            Int
+  produit_id      String       @db.Uuid
+  magasin_id      String       @db.Uuid
+  fournisseur_id  String       @db.Uuid
+  famille_id      String       @db.Uuid
+  qte_achetee     Decimal      @default(0) @db.Decimal(12, 3)
+  qte_vendue      Decimal      @default(0) @db.Decimal(12, 3)
+  total_achat_ttc Decimal      @default(0) @db.Decimal(14, 3)
+  total_vente_ttc Decimal      @default(0) @db.Decimal(14, 3)
+  cmup_mois       Decimal?     @db.Decimal(12, 3)
+  qte_stock       Decimal      @db.Decimal(12, 3)
+  cmup_cumule     Decimal?     @db.Decimal(12, 3)
+  valeur_stock    Decimal      @db.Decimal(14, 3)
+  nb_tx           Int          @default(0)
+  statut          String       @default("VALIDE") @db.VarChar(20)
+  derniere_maj    DateTime     @default(now()) @db.Timestamptz(6)
+  qte_deficit     Decimal      @default(0) @db.Decimal(12, 3)
+  familles        familles     @relation(fields: [famille_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fournisseurs    fournisseurs @relation(fields: [fournisseur_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  magasins        magasins     @relation(fields: [magasin_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  produits        produits     @relation(fields: [produit_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([annee, mois, produit_id, magasin_id, fournisseur_id])
+  @@index([annee, mois, famille_id], map: "idx_snapshot_famille")
+  @@index([annee, mois, fournisseur_id], map: "idx_snapshot_fournisseur")
+  @@index([annee, mois, magasin_id], map: "idx_snapshot_magasin")
+  @@index([annee, mois, produit_id], map: "idx_snapshot_produit")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model audit_logs {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity_type String   @db.VarChar(50)
+  entity_id   String?  @db.Uuid
+  action      String   @db.VarChar(20)
+  actor_id    String?  @db.Uuid
+  actor_email String?  @db.VarChar(255)
+  actor_role  String?  @db.VarChar(20)
+  summary     String?
+  changes     Json?
+  ip_address  String?  @db.Inet
+  trace_id    String?  @db.VarChar(100)
+  timestamp   DateTime @default(now()) @db.Timestamptz(6)
+  users       users?   @relation(fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([action], map: "idx_audit_action")
+  @@index([actor_id], map: "idx_audit_actor_id")
+  @@index([entity_type, entity_id], map: "idx_audit_entity")
+  @@index([timestamp(sort: Desc)], map: "idx_audit_timestamp")
+  @@index([trace_id], map: "idx_audit_trace_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model bl_achat_lignes {
+  id                                      String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bl_achat_id                             String         @db.Uuid
+  produit_id                              String         @db.Uuid
+  qte_achetee                             Decimal        @db.Decimal(12, 3)
+  qte_restante                            Decimal        @db.Decimal(12, 3)
+  prix_achat_net_ht                       Decimal        @db.Decimal(12, 3)
+  taux_tva                                Int
+  prix_achat_ttc                          Decimal        @db.Decimal(12, 3)
+  prix_achat_total_ttc                    Decimal        @db.Decimal(12, 3)
+  created_at                              DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at                              DateTime?      @db.Timestamptz(6)
+  deleted_at                              DateTime?      @db.Timestamptz(6)
+  created_by                              String?        @db.Uuid
+  updated_by                              String?        @db.Uuid
+  deleted_by                              String?        @db.Uuid
+  bl_achats                               bl_achats      @relation(fields: [bl_achat_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_bl_achat_lignes_created_byTousers users?         @relation("bl_achat_lignes_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_bl_achat_lignes_deleted_byTousers users?         @relation("bl_achat_lignes_deleted_byTousers", fields: [deleted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  produits                                produits       @relation(fields: [produit_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_bl_achat_lignes_updated_byTousers users?         @relation("bl_achat_lignes_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vente_lignes                            vente_lignes[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model bl_achats {
+  id                                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  date_id                           Int
+  transaction_date                  DateTime          @db.Date
+  bl_numero                         String            @db.VarChar(50)
+  magasin_id                        String            @db.Uuid
+  fournisseur_id                    String            @db.Uuid
+  created_at                        DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at                        DateTime?         @db.Timestamptz(6)
+  deleted_at                        DateTime?         @db.Timestamptz(6)
+  created_by                        String?           @db.Uuid
+  updated_by                        String?           @db.Uuid
+  deleted_by                        String?           @db.Uuid
+  bl_achat_lignes                   bl_achat_lignes[]
+  users_bl_achats_created_byTousers users?            @relation("bl_achats_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  calendar                          calendar          @relation(fields: [date_id], references: [date_id], onDelete: NoAction, onUpdate: NoAction)
+  users_bl_achats_deleted_byTousers users?            @relation("bl_achats_deleted_byTousers", fields: [deleted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fournisseurs                      fournisseurs      @relation(fields: [fournisseur_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  magasins                          magasins          @relation(fields: [magasin_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_bl_achats_updated_byTousers users?            @relation("bl_achats_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model calendar {
+  date_id             Int                   @id
+  date_full           DateTime              @unique @db.Date
+  annee               Int
+  semestre            Int
+  trimestre           Int
+  mois                Int
+  semaine             Int
+  jour_semaine        Int
+  nom_mois            String                @db.VarChar(20)
+  nom_jour            String                @db.VarChar(20)
+  est_weekend         Boolean               @default(false)
+  bl_achats           bl_achats[]
+  transactions_legacy transactions_legacy[]
+  ventes              ventes[]
+
+  @@index([annee, mois], map: "idx_calendar_annee_mois")
+  @@index([date_full], map: "idx_calendar_date_full")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model familles {
+  id                               String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                             String                     @db.VarChar(10)
+  nom                              String                     @db.VarChar(100)
+  description                      String?
+  is_active                        Boolean                    @default(true)
+  created_at                       DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime?                  @db.Timestamptz(6)
+  deleted_at                       DateTime?                  @db.Timestamptz(6)
+  created_by                       String?                    @db.Uuid
+  updated_by                       String?                    @db.Uuid
+  deleted_by                       String?                    @db.Uuid
+  analytics_stock_snapshot         analytics_stock_snapshot[]
+  users_familles_created_byTousers users?                     @relation("familles_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_familles_deleted_byTousers users?                     @relation("familles_deleted_byTousers", fields: [deleted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_familles_updated_byTousers users?                     @relation("familles_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  produits                         produits[]
+
+  @@index([code], map: "idx_familles_code")
+}
+
+model flyway_schema_history {
+  installed_rank Int      @id(map: "flyway_schema_history_pk")
+  version        String?  @db.VarChar(50)
+  description    String   @db.VarChar(200)
+  type           String   @db.VarChar(20)
+  script         String   @db.VarChar(1000)
+  checksum       Int?
+  installed_by   String   @db.VarChar(100)
+  installed_on   DateTime @default(now()) @db.Timestamp(6)
+  execution_time Int
+  success        Boolean
+
+  @@index([success], map: "flyway_schema_history_s_idx")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model fournisseurs {
+  id                                   String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                                 String                     @db.VarChar(20)
+  nom                                  String                     @db.VarChar(200)
+  adresse                              String?
+  telephone                            String?                    @db.VarChar(30)
+  email                                String?                    @db.VarChar(255)
+  contact_principal                    String?                    @db.VarChar(100)
+  is_active                            Boolean                    @default(true)
+  created_at                           DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                           DateTime?                  @db.Timestamptz(6)
+  deleted_at                           DateTime?                  @db.Timestamptz(6)
+  created_by                           String?                    @db.Uuid
+  updated_by                           String?                    @db.Uuid
+  deleted_by                           String?                    @db.Uuid
+  analytics_stock_snapshot             analytics_stock_snapshot[]
+  bl_achats                            bl_achats[]
+  users_fournisseurs_created_byTousers users?                     @relation("fournisseurs_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_fournisseurs_deleted_byTousers users?                     @relation("fournisseurs_deleted_byTousers", fields: [deleted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_fournisseurs_updated_byTousers users?                     @relation("fournisseurs_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  transactions_legacy                  transactions_legacy[]
+
+  @@index([code], map: "idx_fournisseurs_code")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model magasins {
+  id                               String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                             String                     @db.VarChar(20)
+  nom                              String                     @db.VarChar(200)
+  adresse                          String?
+  ville                            String?                    @db.VarChar(100)
+  telephone                        String?                    @db.VarChar(30)
+  responsable                      String?                    @db.VarChar(100)
+  is_active                        Boolean                    @default(true)
+  created_at                       DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime?                  @db.Timestamptz(6)
+  deleted_at                       DateTime?                  @db.Timestamptz(6)
+  created_by                       String?                    @db.Uuid
+  updated_by                       String?                    @db.Uuid
+  deleted_by                       String?                    @db.Uuid
+  analytics_stock_snapshot         analytics_stock_snapshot[]
+  bl_achats                        bl_achats[]
+  users_magasins_created_byTousers users?                     @relation("magasins_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_magasins_deleted_byTousers users?                     @relation("magasins_deleted_byTousers", fields: [deleted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_magasins_updated_byTousers users?                     @relation("magasins_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  stock                            stock[]
+  stock_legacy_lots                stock_legacy_lots[]
+  transactions_legacy              transactions_legacy[]
+  ventes                           ventes[]
+
+  @@index([ville], map: "idx_magasins_ville")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model produits {
+  id                               String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reference                        String                     @db.VarChar(50)
+  designation                      String                     @db.VarChar(200)
+  famille_id                       String                     @db.Uuid
+  is_active                        Boolean                    @default(true)
+  created_at                       DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime?                  @db.Timestamptz(6)
+  deleted_at                       DateTime?                  @db.Timestamptz(6)
+  created_by                       String?                    @db.Uuid
+  updated_by                       String?                    @db.Uuid
+  deleted_by                       String?                    @db.Uuid
+  analytics_stock_snapshot         analytics_stock_snapshot[]
+  bl_achat_lignes                  bl_achat_lignes[]
+  users_produits_created_byTousers users?                     @relation("produits_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_produits_deleted_byTousers users?                     @relation("produits_deleted_byTousers", fields: [deleted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  familles                         familles                   @relation(fields: [famille_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_produits_updated_byTousers users?                     @relation("produits_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  stock                            stock[]
+  stock_legacy_lots                stock_legacy_lots[]
+  transactions_legacy              transactions_legacy[]
+  vente_lignes                     vente_lignes[]
+
+  @@index([famille_id], map: "idx_produits_famille_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model stock {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  produit_id          String   @db.Uuid
+  magasin_id          String   @db.Uuid
+  quantite_disponible Decimal  @default(0) @db.Decimal(12, 3)
+  cmup                Decimal  @default(0) @db.Decimal(12, 3)
+  date_derniere_maj   DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  magasins            magasins @relation(fields: [magasin_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  produits            produits @relation(fields: [produit_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([produit_id, magasin_id], map: "uq_stock_produit_magasin")
+  @@index([magasin_id], map: "idx_stock_magasin_id")
+  @@index([produit_id], map: "idx_stock_produit_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model stock_legacy_lots {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  produit_id     String         @db.Uuid
+  magasin_id     String         @db.Uuid
+  qte_disponible Decimal        @db.Decimal(12, 3)
+  cout_unitaire  Decimal        @db.Decimal(12, 3)
+  created_at     DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime?      @db.Timestamptz(6)
+  magasins       magasins       @relation(fields: [magasin_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  produits       produits       @relation(fields: [produit_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vente_lignes   vente_lignes[]
+
+  @@unique([produit_id, magasin_id], map: "uq_legacy_lot_produit_magasin")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model transactions_legacy {
+  id                                          String       @id(map: "transactions_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  date_id                                     Int
+  transaction_date                            DateTime     @db.Date
+  bl_numero                                   String       @db.VarChar(50)
+  magasin_id                                  String       @db.Uuid
+  fournisseur_id                              String       @db.Uuid
+  produit_id                                  String       @db.Uuid
+  qte_achetee                                 Decimal      @db.Decimal(12, 3)
+  prix_achat_net_ht                           Decimal      @db.Decimal(12, 3)
+  prix_achat_ttc                              Decimal      @db.Decimal(12, 3)
+  prix_achat_total_ttc                        Decimal      @db.Decimal(12, 3)
+  qte_vendue                                  Decimal?     @db.Decimal(12, 3)
+  prix_vente_ttc                              Decimal?     @db.Decimal(12, 3)
+  prix_vente_total_ttc                        Decimal?     @db.Decimal(12, 3)
+  created_at                                  DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at                                  DateTime?    @db.Timestamptz(6)
+  deleted_at                                  DateTime?    @db.Timestamptz(6)
+  created_by                                  String       @db.Uuid
+  updated_by                                  String?      @db.Uuid
+  deleted_by                                  String?      @db.Uuid
+  taux_tva                                    Int          @default(19)
+  users_transactions_legacy_created_byTousers users        @relation("transactions_legacy_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_created_by_fkey")
+  calendar                                    calendar     @relation(fields: [date_id], references: [date_id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_date_id_fkey")
+  users_transactions_legacy_deleted_byTousers users?       @relation("transactions_legacy_deleted_byTousers", fields: [deleted_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_deleted_by_fkey")
+  fournisseurs                                fournisseurs @relation(fields: [fournisseur_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_fournisseur_id_fkey")
+  magasins                                    magasins     @relation(fields: [magasin_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_magasin_id_fkey")
+  produits                                    produits     @relation(fields: [produit_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_produit_id_fkey")
+  users_transactions_legacy_updated_byTousers users?       @relation("transactions_legacy_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_updated_by_fkey")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model user_sessions {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            String    @db.Uuid
+  refresh_token_hash String    @unique(map: "uq_sessions_token") @db.VarChar(255)
+  ip_address         String?   @db.Inet
+  user_agent         String?
+  expires_at         DateTime  @db.Timestamptz(6)
+  revoked_at         DateTime? @db.Timestamptz(6)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  users              users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([expires_at], map: "idx_sessions_expires_at")
+  @@index([user_id], map: "idx_sessions_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model users {
+  id                                                        String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                                                     String                @db.VarChar(255)
+  password_hash                                             String                @db.VarChar(255)
+  first_name                                                String?               @db.VarChar(100)
+  last_name                                                 String?               @db.VarChar(100)
+  role                                                      String                @db.VarChar(20)
+  is_active                                                 Boolean               @default(true)
+  must_change_password                                      Boolean               @default(true)
+  login_attempt_count                                       Int                   @default(0)
+  locked_until                                              DateTime?             @db.Timestamptz(6)
+  last_login_at                                             DateTime?             @db.Timestamptz(6)
+  created_at                                                DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at                                                DateTime?             @db.Timestamptz(6)
+  deleted_at                                                DateTime?             @db.Timestamptz(6)
+  created_by                                                String?               @db.Uuid
+  updated_by                                                String?               @db.Uuid
+  deleted_by                                                String?               @db.Uuid
+  audit_logs                                                audit_logs[]
+  bl_achat_lignes_bl_achat_lignes_created_byTousers         bl_achat_lignes[]     @relation("bl_achat_lignes_created_byTousers")
+  bl_achat_lignes_bl_achat_lignes_deleted_byTousers         bl_achat_lignes[]     @relation("bl_achat_lignes_deleted_byTousers")
+  bl_achat_lignes_bl_achat_lignes_updated_byTousers         bl_achat_lignes[]     @relation("bl_achat_lignes_updated_byTousers")
+  bl_achats_bl_achats_created_byTousers                     bl_achats[]           @relation("bl_achats_created_byTousers")
+  bl_achats_bl_achats_deleted_byTousers                     bl_achats[]           @relation("bl_achats_deleted_byTousers")
+  bl_achats_bl_achats_updated_byTousers                     bl_achats[]           @relation("bl_achats_updated_byTousers")
+  familles_familles_created_byTousers                       familles[]            @relation("familles_created_byTousers")
+  familles_familles_deleted_byTousers                       familles[]            @relation("familles_deleted_byTousers")
+  familles_familles_updated_byTousers                       familles[]            @relation("familles_updated_byTousers")
+  fournisseurs_fournisseurs_created_byTousers               fournisseurs[]        @relation("fournisseurs_created_byTousers")
+  fournisseurs_fournisseurs_deleted_byTousers               fournisseurs[]        @relation("fournisseurs_deleted_byTousers")
+  fournisseurs_fournisseurs_updated_byTousers               fournisseurs[]        @relation("fournisseurs_updated_byTousers")
+  magasins_magasins_created_byTousers                       magasins[]            @relation("magasins_created_byTousers")
+  magasins_magasins_deleted_byTousers                       magasins[]            @relation("magasins_deleted_byTousers")
+  magasins_magasins_updated_byTousers                       magasins[]            @relation("magasins_updated_byTousers")
+  produits_produits_created_byTousers                       produits[]            @relation("produits_created_byTousers")
+  produits_produits_deleted_byTousers                       produits[]            @relation("produits_deleted_byTousers")
+  produits_produits_updated_byTousers                       produits[]            @relation("produits_updated_byTousers")
+  transactions_legacy_transactions_legacy_created_byTousers transactions_legacy[] @relation("transactions_legacy_created_byTousers")
+  transactions_legacy_transactions_legacy_deleted_byTousers transactions_legacy[] @relation("transactions_legacy_deleted_byTousers")
+  transactions_legacy_transactions_legacy_updated_byTousers transactions_legacy[] @relation("transactions_legacy_updated_byTousers")
+  user_sessions                                             user_sessions[]
+  users_users_created_byTousers                             users?                @relation("users_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_users_users_created_byTousers                       users[]               @relation("users_created_byTousers")
+  users_users_deleted_byTousers                             users?                @relation("users_deleted_byTousers", fields: [deleted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_users_users_deleted_byTousers                       users[]               @relation("users_deleted_byTousers")
+  users_users_updated_byTousers                             users?                @relation("users_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_users_users_updated_byTousers                       users[]               @relation("users_updated_byTousers")
+  ventes_ventes_created_byTousers                           ventes[]              @relation("ventes_created_byTousers")
+  ventes_ventes_updated_byTousers                           ventes[]              @relation("ventes_updated_byTousers")
+
+  @@index([email], map: "idx_users_email")
+  @@index([is_active], map: "idx_users_is_active")
+  @@index([role], map: "idx_users_role")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model vente_lignes {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vente_id             String             @db.Uuid
+  produit_id           String             @db.Uuid
+  source_type          String             @db.VarChar(20)
+  bl_achat_ligne_id    String?            @db.Uuid
+  stock_legacy_lot_id  String?            @db.Uuid
+  qte_vendue           Decimal            @db.Decimal(12, 3)
+  prix_vente_ttc       Decimal            @db.Decimal(12, 3)
+  prix_vente_total_ttc Decimal            @db.Decimal(12, 3)
+  depassement_stock    Boolean            @default(false)
+  qte_non_couverte     Decimal            @default(0) @db.Decimal(12, 3)
+  created_at           DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?          @db.Timestamptz(6)
+  bl_achat_lignes      bl_achat_lignes?   @relation(fields: [bl_achat_ligne_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  produits             produits           @relation(fields: [produit_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  stock_legacy_lots    stock_legacy_lots? @relation(fields: [stock_legacy_lot_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ventes               ventes             @relation(fields: [vente_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([produit_id], map: "idx_vl_produit_id")
+  @@index([vente_id], map: "idx_vl_vente_id")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ventes {
+  id                             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  date_id                        Int
+  vente_date                     DateTime       @db.Date
+  magasin_id                     String         @db.Uuid
+  created_at                     DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime?      @db.Timestamptz(6)
+  created_by                     String?        @db.Uuid
+  updated_by                     String?        @db.Uuid
+  vente_lignes                   vente_lignes[]
+  users_ventes_created_byTousers users?         @relation("ventes_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  calendar                       calendar       @relation(fields: [date_id], references: [date_id], onDelete: NoAction, onUpdate: NoAction)
+  magasins                       magasins       @relation(fields: [magasin_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_ventes_updated_byTousers users?         @relation("ventes_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
