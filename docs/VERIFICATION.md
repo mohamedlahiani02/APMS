@@ -1,0 +1,21 @@
+# Verification — 2026-10-16
+
+Work was performed only in the new TypeScript APMS repository. The Java/Spring Boot handover was read as reference; the production server was not accessed.
+
+## Confirmed
+
+- Backend TypeScript checking and production compilation pass.
+- All 88 tests in 13 Vitest suites pass against the local restored PostgreSQL 15 database on port 5433. HTTP coverage assembles the same application as the real server and checks all twelve domains, both roles, CRUD, stock draw/reverse/redraw, oversell, BL guards, sales search, audit, Excel export, first-login password changes and concurrent sale/refresh requests.
+- Frontend lint and Next.js production build pass. All application routes are generated, including stock and audit.
+- Both Prisma migrations were deployed into a newly created scratch database. It contained all five original stored routines, two triggers and 40 CHECK constraints; get_kpi_lines_for_month executed successfully. Only that scratch database was removed. The supplemental migration also deployed successfully against the local restored database.
+- The original applied baseline was not edited. Production business rows were not reset or migrated.
+
+## Outstanding manual verification
+
+The browser permission gate declined access to http://127.0.0.1:3100. Therefore no visual screenshot review or browser walkthrough is claimed. Verify every route and modal as both roles, searchable filters and line pickers, login/logout, downloads and responsive layout before calling the rewrite fully accepted. HTTP tests and successful builds do not substitute for this.
+
+The legacy visual-style repository and the live production UI were not inspected in this session; exact client-approved visual parity remains unverified.
+
+## Publication and deployment
+
+GitHub origin access was confirmed. The repository is public and had no remote branches when inspected. No source or sensitive handover data was published by this verification. GitHub Actions cannot be claimed as passing until the workflow is published and actually runs. Server cutover remains outside the rewrite scope.

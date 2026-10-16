@@ -2,7 +2,7 @@ import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/store/authStore';
 
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:3001/api/v1',
+  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || '/api/v1',
   headers: { 'Content-Type': 'application/json' },
 });
 

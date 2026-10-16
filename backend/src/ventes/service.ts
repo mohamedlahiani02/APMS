@@ -1,3 +1,4 @@
+import { lockStockLedger } from '../common/stock-lock.js';
 import { prisma, round3, Prisma } from "../db.js";
 import { audit, type AuditContext } from "../common/audit.js";
 import type { CurrentUser } from "../common/current-user.js";
@@ -90,6 +91,7 @@ export async function createVenteTx(
   actor: CurrentUser,
   ctx: AuditContext,
 ): Promise<VenteResponse> {
+  await lockStockLedger(tx);
   const { forValidation, forDb } = parseDateOnly(input.venteDate);
   validateTransactionDate(forValidation);
 
@@ -141,6 +143,7 @@ export async function updateVenteTx(
   actor: CurrentUser,
   ctx: AuditContext,
 ): Promise<VenteResponse> {
+  await lockStockLedger(tx);
   const { forValidation, forDb } = parseDateOnly(input.venteDate);
   validateTransactionDate(forValidation);
 
@@ -192,6 +195,7 @@ export async function deleteVenteTx(
   actor: CurrentUser,
   ctx: AuditContext,
 ): Promise<void> {
+  await lockStockLedger(tx);
   {
     const current = await tx.ventes.findUnique({
       where: { id },

@@ -14,7 +14,7 @@ import Button from '@/components/ui/Button';
 
 export default function ChangePasswordPage() {
   const router = useRouter();
-  const markPasswordChanged = useAuthStore((s) => s.markPasswordChanged);
+  const clear = useAuthStore((s) => s.clear);
   const user = useAuthStore((s) => s.user);
   const [serverError, setServerError] = useState('');
 
@@ -28,8 +28,8 @@ export default function ChangePasswordPage() {
     setServerError('');
     try {
       await changePassword({ currentPassword: data.currentPassword, newPassword: data.newPassword });
-      markPasswordChanged();
-      router.replace('/dashboard');
+      clear();
+      router.replace('/login');
     } catch (err: unknown) {
       setServerError(extractApiErrorMessage(err, 'Erreur lors du changement de mot de passe.'));
     }

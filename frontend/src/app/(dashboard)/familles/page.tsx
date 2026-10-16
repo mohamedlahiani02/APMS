@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { invalidateReference } from '@/lib/api/cache';
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -43,7 +44,7 @@ function FamilleForm({ onClose, initial }: { onClose: () => void; initial?: Fami
         ? updateFamille(initial!.id, { nom: data.nom, description: data.description })
         : createFamille(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['familles'] });
+      invalidateReference(qc, 'familles');
       onClose();
     },
   });
@@ -56,7 +57,7 @@ function FamilleForm({ onClose, initial }: { onClose: () => void; initial?: Fami
           label="Code *"
           placeholder="Code famille"
           error={errors.code?.message}
-          disabled={isEditing}
+          readOnly={isEditing}
           {...register('code')}
         />
         <Input id="nom" label="Nom *" placeholder="Filtres" error={errors.nom?.message} {...register('nom')} />
@@ -99,7 +100,7 @@ export default function FamillesPage() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['familles', page, search],
     queryFn: () => listFamilles({ page, size: PAGE_SIZE, search: search || undefined }),
     placeholderData: keepPreviousData,
@@ -111,7 +112,7 @@ export default function FamillesPage() {
   const deleteMutation = useMutation({
     mutationFn: deleteFamille,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['familles'] });
+      invalidateReference(qc, 'familles');
       setDeleteId(null);
       setDeleteError(null);
     },
@@ -149,6 +150,7 @@ export default function FamillesPage() {
         />
       </div>
 
+      <ApiErrorBanner error={error} />
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {isLoading ? (
           <LoadingSpinner fullPage />

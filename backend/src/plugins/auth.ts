@@ -2,6 +2,7 @@ import fp from "fastify-plugin";
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest, preHandlerHookHandler } from "fastify";
 import jwt from "jsonwebtoken";
 import { config } from "../config.js";
+import { prisma } from "../db.js";
 import { ForbiddenException, UnauthorizedException } from "../common/errors.js";
 import type { CurrentUser, Role } from "../common/current-user.js";
 
@@ -46,10 +47,21 @@ export const authPlugin: FastifyPluginAsync = fp(async (app) => {
       throw new UnauthorizedException("AUTH_MISSING_TOKEN", "Authentification requise.");
     }
     const token = header.slice("Bearer ".length);
+    let claims: CurrentUser;
     try {
-      request.user = verifyAccessToken(token);
+      claims = verifyAccessToken(token);
+      if (!claims.id || !['ADMIN', 'SECRETAIRE'].includes(claims.role)) throw new Error('Invalid claims');
     } catch {
       throw new UnauthorizedException("AUTH_INVALID_TOKEN", "Jeton invalide ou expiré.");
+    }
+    const user = await prisma.users.findFirst({ where: { id: claims.id, deleted_at: null, is_active: true } });
+    if (!user || !['ADMIN', 'SECRETAIRE'].includes(user.role)) {
+      throw new UnauthorizedException("AUTH_INVALID_TOKEN", "Compte inactif ou introuvable.");
+    }
+    request.user = { id: user.id, email: user.email, role: user.role as Role };
+    const allowed = ['/api/v1/auth/me', '/api/v1/auth/change-password', '/api/v1/auth/logout'];
+    if (user.must_change_password && !allowed.includes(request.url.split('?')[0]!)) {
+      throw new ForbiddenException('Veuillez changer votre mot de passe avant de continuer.');
     }
   });
 

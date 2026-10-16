@@ -1,8 +1,4 @@
-// Domain types mirroring docs/API_CONTRACT.md exactly. Analytics response shapes are
-// NOT in the contract verbatim (the contract defers exact field names to the analytics
-// agent, only constraining self-consistency); the names below are an assumption, kept
-// self-explanatory and consistent across dashboard/bilan/drilldown per the contract's
-// own allowance ("pick something consistent ... and note it as an assumption").
+// API response types. Keep these aligned with docs/API_CONTRACT.md and backend mappers.
 
 export type Role = 'ADMIN' | 'SECRETAIRE';
 
@@ -26,7 +22,10 @@ export interface LoginRequest {
 export interface AuthSession {
   accessToken: string;
   refreshToken: string;
-  user: User;
+  user: Pick<
+    User,
+    'id' | 'email' | 'firstName' | 'lastName' | 'role' | 'mustChangePassword'
+  >;
 }
 
 export interface RefreshResponse {
@@ -42,15 +41,15 @@ export interface ChangePasswordRequest {
 
 export interface UserCreateRequest {
   email: string;
-  firstName?: string | null;
-  lastName?: string | null;
+  firstName: string;
+  lastName: string;
   role: Role;
   password: string;
 }
 
 export interface UserUpdateRequest {
-  firstName?: string | null;
-  lastName?: string | null;
+  firstName: string;
+  lastName: string;
   role?: Role;
   isActive?: boolean;
 }
@@ -228,34 +227,24 @@ export interface StockItem {
   valeur: number;
 }
 
-// ── Analytics (ADMIN only) — see module-level note on naming assumptions ──
-
-export interface PeriodInfo {
-  year: number;
-  month: number;
-  monthName: string;
-  label: string;
-}
-
+// Analytics responses match backend/src/analytics/service.ts.
 export interface GlobalKpi {
   totalAchat: number;
   totalVente: number;
   marge: number;
-  tauxMarge: number;
+  tauxMarge: number | null;
   totalValeur: number;
   nbTx: number;
 }
-
 export interface FournisseurKpi {
   fournisseurId: string;
   fournisseurNom: string;
   totalAchat: number;
   totalVente: number;
-  totalValeur: number;
   marge: number;
   nbTx: number;
+  pctAchatDuTop: number | null;
 }
-
 export interface FamilleKpi {
   familleId: string;
   familleNom: string;
@@ -265,7 +254,6 @@ export interface FamilleKpi {
   marge: number;
   nbTx: number;
 }
-
 export interface MagasinKpi {
   magasinId: string;
   magasinNom: string;
@@ -275,59 +263,78 @@ export interface MagasinKpi {
   marge: number;
   nbTx: number;
 }
-
-export interface TopFamilleItem {
-  rang: number;
-  familleId: string;
-  familleNom: string;
-  totalVente: number;
-}
-
-export interface TopFamilleStockeeItem {
-  rang: number;
-  familleId: string;
-  familleNom: string;
-  totalValeur: number;
-}
-
 export interface DashboardKpiResponse {
-  period: PeriodInfo;
-  global: GlobalKpi;
+  year: number;
+  month: number;
+  totals: GlobalKpi;
   parFournisseur: FournisseurKpi[];
   parFamille: FamilleKpi[];
   parMagasin: MagasinKpi[];
-  topFamillesVendues: TopFamilleItem[];
-  topFamillesStockees: TopFamilleStockeeItem[];
+  topFamillesParVente: {
+    familleId: string;
+    familleNom: string;
+    totalVente: number;
+  }[];
+  topFamillesParValeur: {
+    familleId: string;
+    familleNom: string;
+    totalValeur: number;
+  }[];
 }
-
 export interface AnnualReportResponse {
   year: number;
   upToMonth: number;
-  cumulative: GlobalKpi;
-  parFournisseur: FournisseurKpi[];
-  parMagasin: MagasinKpi[];
-  parFamille: FamilleKpi[];
+  label: string;
+  evolution: {
+    month: number;
+    monthLabel: string;
+    totalAchat: number;
+    totalVente: number;
+    nbTx: number;
+  }[];
+  cumulAchat: number;
+  cumulVente: number;
+  cumulMarge: number;
+  cumulNbTx: number;
+  cumValeur: number;
+  topFournisseurs: FournisseurKpi[];
+  topFamilles: FamilleKpi[];
+  topMagasins: MagasinKpi[];
 }
-
 export interface DrilldownStockItem {
   produitId: string;
   produitReference: string;
   produitDesignation: string;
   magasinId: string;
   magasinNom: string;
+  fournisseurId: string;
+  fournisseurNom: string;
+  familleId: string;
+  familleNom: string;
+  qteAchetee: number;
+  qteVendue: number;
+  totalAchat: number;
+  totalVente: number;
   qteStock: number;
   cmupCumule: number | null;
-  valeurStock: number | null;
+  totalValeur: number;
+  qteDeficit: number;
+  nbTx: number;
 }
-
 export interface DrilldownResponse {
-  period: PeriodInfo;
+  dimension: 'familles' | 'fournisseurs' | 'magasins';
+  id: string;
+  nom: string;
+  year: number;
+  month: number;
   items: DrilldownStockItem[];
-  totaux: {
+  totals: {
     totalAchat: number;
     totalVente: number;
     totalValeur: number;
-    marge: number;
+    qteDeficit: number;
+    nbTx: number;
+    marge?: number;
   };
 }
 
@@ -336,11 +343,11 @@ export interface DrilldownResponse {
 export interface AuditEntry {
   id: string;
   entityType: string;
-  entityId: string;
+  entityId: string | null;
   action: string;
-  actorEmail: string;
-  actorRole: Role;
-  summary: string;
+  actorEmail: string | null;
+  actorRole: string | null;
+  summary: string | null;
   changes: unknown;
   timestamp: string;
 }

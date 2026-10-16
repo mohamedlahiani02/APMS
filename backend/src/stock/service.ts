@@ -96,7 +96,12 @@ export async function listStock(query: StockQuery): Promise<{ content: StockItem
   `;
 
   const result = await pool.query(sql, [magasinId, search, limit, offset]);
-  const total = result.rows[0] ? Number(result.rows[0].total_count) : 0;
+  // A window count has no row to travel with on an out-of-range page.
+  // Fetch the first row only in that case to preserve truthful page metadata.
+  const countSource = result.rows.length === 0 && offset > 0
+    ? await pool.query(sql, [magasinId, search, 1, 0])
+    : result;
+  const total = countSource.rows[0] ? Number(countSource.rows[0].total_count) : 0;
   const content: StockItem[] = result.rows.map((row) => ({
     produitId: row.produit_id,
     produitReference: row.produit_reference,

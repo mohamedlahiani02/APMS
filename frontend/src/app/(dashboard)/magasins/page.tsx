@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { invalidateReference } from '@/lib/api/cache';
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -56,7 +57,7 @@ function MagasinForm({ onClose, initial }: { onClose: () => void; initial?: Maga
           })
         : createMagasin(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['magasins'] });
+      invalidateReference(qc, 'magasins');
       onClose();
     },
   });
@@ -69,7 +70,7 @@ function MagasinForm({ onClose, initial }: { onClose: () => void; initial?: Maga
           label="Code *"
           placeholder="Code magasin"
           error={errors.code?.message}
-          disabled={isEditing}
+          readOnly={isEditing}
           {...register('code')}
         />
         <Input id="nom" label="Nom *" placeholder="Nom du magasin" error={errors.nom?.message} {...register('nom')} />
@@ -123,7 +124,7 @@ export default function MagasinsPage() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['magasins', page, search],
     queryFn: () => listMagasins({ page, size: PAGE_SIZE, search: search || undefined }),
     placeholderData: keepPreviousData,
@@ -135,7 +136,7 @@ export default function MagasinsPage() {
   const deleteMutation = useMutation({
     mutationFn: deleteMagasin,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['magasins'] });
+      invalidateReference(qc, 'magasins');
       setDeleteId(null);
       setDeleteError(null);
     },
@@ -173,6 +174,7 @@ export default function MagasinsPage() {
         />
       </div>
 
+      <ApiErrorBanner error={error} />
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {isLoading ? (
           <LoadingSpinner fullPage />

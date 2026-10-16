@@ -9,3 +9,12 @@ out/
 Thumbs.db
 *.tsbuildinfo
 coverage/
+
+# Sensitive handover and local browser fixtures
+*.dump
+*.backup
+*.SENSITIVE.*
+claude-sessions/
+.env.*.local
+playwright-report/
+test-results/

@@ -2,8 +2,9 @@
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { invalidateReference } from '@/lib/api/cache';
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   listProduits,
@@ -32,7 +33,7 @@ function ProduitForm({ onClose, initial }: { onClose: () => void; initial?: Prod
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<ProduitInput>({
@@ -42,13 +43,15 @@ function ProduitForm({ onClose, initial }: { onClose: () => void; initial?: Prod
       : undefined,
   });
 
+  const familleId = useWatch({ control, name: 'familleId' });
+
   const mutation = useMutation({
     mutationFn: (data: ProduitInput) =>
       isEditing
         ? updateProduit(initial!.id, { designation: data.designation, familleId: data.familleId })
         : createProduit(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['produits'] });
+      invalidateReference(qc, 'produits');
       onClose();
     },
   });
@@ -61,7 +64,7 @@ function ProduitForm({ onClose, initial }: { onClose: () => void; initial?: Prod
           label="Référence *"
           placeholder="Référence produit"
           error={errors.reference?.message}
-          disabled={isEditing}
+          readOnly={isEditing}
           {...register('reference')}
         />
         <Input
@@ -74,7 +77,7 @@ function ProduitForm({ onClose, initial }: { onClose: () => void; initial?: Prod
       </div>
       <SearchSelect
         label="Famille *"
-        value={watch('familleId') ?? ''}
+        value={familleId ?? ''}
         onChange={(id) => setValue('familleId', id, { shouldValidate: true })}
         onSearch={(q) => lookupFamilles(q)}
         queryKey="familles"
@@ -116,7 +119,7 @@ export default function ProduitsPage() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['produits', page, filterFamille, search],
     queryFn: () =>
       listProduits({
@@ -128,13 +131,6 @@ export default function ProduitsPage() {
     placeholderData: keepPreviousData,
   });
 
-  // Feeds the plain "Toutes les familles" filter <select> — fetched once with a
-  // high limit since it can't search-as-you-type like the form's SearchSelect.
-  const { data: familles = [] } = useQuery({
-    queryKey: ['familles', 'lookup', 'all'],
-    queryFn: () => lookupFamilles(undefined, 200),
-    staleTime: 5 * 60_000,
-  });
 
   const produits = data?.content ?? [];
   const meta = data?.page;
@@ -142,7 +138,7 @@ export default function ProduitsPage() {
   const deleteMutation = useMutation({
     mutationFn: deleteProduit,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['produits'] });
+      invalidateReference(qc, 'produits');
       setDeleteId(null);
       setDeleteError(null);
     },
@@ -182,23 +178,18 @@ export default function ProduitsPage() {
             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
           />
         </div>
-        <select
+        <div className="w-64"><SearchSelect
           value={filterFamille}
-          onChange={(e) => {
-            setFilterFamille(e.target.value);
-            setPage(0);
-          }}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
-        >
-          <option value="">Toutes les familles</option>
-          {familles.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.label}
-            </option>
-          ))}
-        </select>
+          onChange={id => { setFilterFamille(id); setPage(0); }}
+          onSearch={lookupFamilles}
+          queryKey="familles"
+          getId={f => f.id}
+          getLabel={f => f.label}
+          placeholder="Toutes les familles"
+        /></div>
       </div>
 
+      <ApiErrorBanner error={error} />
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {isLoading ? (
           <LoadingSpinner fullPage />

@@ -101,7 +101,7 @@ async function createSession(tx: Tx, userId: string, ipAddress?: string): Promis
 
 export async function login(email: string, password: string, ctx: AuditContext): Promise<LoginResult> {
   const user = await prisma.users.findFirst({ where: { email, deleted_at: null } });
-  if (!user) {
+  if (!user || !user.is_active) {
     throw invalidCredentials();
   }
 
@@ -181,9 +181,15 @@ export async function refresh(refreshTokenRaw: string, ctx: AuditContext): Promi
   }
 
   const { newRefreshToken, user } = await prisma.$transaction(async (tx) => {
-    await tx.user_sessions.update({ where: { id: session.id }, data: { revoked_at: new Date() } });
+    const claimed = await tx.user_sessions.updateMany({
+      where: { id: session.id, revoked_at: null, expires_at: { gt: new Date() } },
+      data: { revoked_at: new Date() },
+    });
+    if (claimed.count !== 1) throw tokenRevoked();
+    const user = await tx.users.findFirst({ where: { id: session.user_id, deleted_at: null, is_active: true } });
+    if (!user) throw tokenRevoked();
+    if (user.locked_until && user.locked_until.getTime() > Date.now()) throw accountLocked(formatLockedUntil(user.locked_until));
     const newRefreshToken = await createSession(tx, session.user_id, ctx.ipAddress);
-    const user = await tx.users.findUniqueOrThrow({ where: { id: session.user_id } });
     return { newRefreshToken, user };
   });
 
@@ -198,7 +204,7 @@ export async function refresh(refreshTokenRaw: string, ctx: AuditContext): Promi
 export async function logout(refreshTokenRaw: string, actor: CurrentUser, ctx: AuditContext): Promise<void> {
   const hash = hashToken(refreshTokenRaw);
   const session = await prisma.user_sessions.findUnique({ where: { refresh_token_hash: hash } });
-  if (session && !session.revoked_at) {
+  if (session && session.user_id === actor.id && !session.revoked_at) {
     await prisma.user_sessions.update({ where: { id: session.id }, data: { revoked_at: new Date() } });
   }
   await audit.logLogout({

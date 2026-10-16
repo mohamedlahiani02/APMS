@@ -1,3 +1,4 @@
+import { lockStockLedger } from '../common/stock-lock.js';
 import { prisma, round3, Prisma } from "../db.js";
 import { audit, type AuditContext } from "../common/audit.js";
 import type { CurrentUser } from "../common/current-user.js";
@@ -62,8 +63,8 @@ async function loadBlAchatOrThrow(db: Db, id: string) {
 }
 
 function computeLignePrices(qteAchetee: number, prixAchatNetHt: number, tauxTva: number) {
-  const prixAchatTtc = round3(prixAchatNetHt * (1 + tauxTva / 100));
-  const prixAchatTotalTtc = round3(prixAchatTtc.times(qteAchetee));
+  const prixAchatTtc = round3(round3(prixAchatNetHt).times(new Prisma.Decimal(1).plus(new Prisma.Decimal(tauxTva).div(100))));
+  const prixAchatTotalTtc = round3(prixAchatTtc.times(round3(qteAchetee)));
   return { prixAchatTtc, prixAchatTotalTtc };
 }
 
@@ -87,6 +88,7 @@ export async function createBlAchatTx(
   actor: CurrentUser,
   ctx: AuditContext,
 ): Promise<BlAchatResponse> {
+  await lockStockLedger(tx);
   const { forValidation, forDb } = parseDateOnly(input.transactionDate);
   validateTransactionDate(forValidation);
   for (const l of input.lignes) {
@@ -162,6 +164,7 @@ export async function updateBlAchatTx(
   actor: CurrentUser,
   ctx: AuditContext,
 ): Promise<BlAchatResponse> {
+  await lockStockLedger(tx);
   {
     const current = await tx.bl_achats.findFirst({
       where: { id, deleted_at: null },
@@ -259,6 +262,7 @@ export async function deleteBlAchatTx(
   actor: CurrentUser,
   ctx: AuditContext,
 ): Promise<void> {
+  await lockStockLedger(tx);
   {
     const current = await tx.bl_achats.findFirst({
       where: { id, deleted_at: null },

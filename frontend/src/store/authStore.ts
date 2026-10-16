@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AuthSession, RefreshResponse, User } from '@/types';
+import type { AuthSession, RefreshResponse } from '@/types';
 import * as authService from '@/features/auth/services/authService';
 
 type Status = 'idle' | 'bootstrapping' | 'authenticated' | 'unauthenticated';
@@ -11,7 +11,7 @@ interface AuthState {
   status: Status;
   accessToken: string | null;
   refreshToken: string | null;
-  user: User | null;
+  user: AuthSession['user'] | null;
   bootstrap: () => void;
   setSession: (data: AuthSession) => void;
   markPasswordChanged: () => void;

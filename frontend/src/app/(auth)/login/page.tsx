@@ -29,7 +29,7 @@ export default function LoginPage() {
     try {
       const response = await loginRequest({ email: data.email, password: data.password });
       setSession(response);
-      router.replace(response.user.mustChangePassword ? '/change-password' : '/dashboard');
+      router.replace(response.user.mustChangePassword ? '/change-password' : response.user.role === 'ADMIN' ? '/dashboard' : '/transactions');
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       const data = (err as { response?: { data?: unknown } })?.response?.data;

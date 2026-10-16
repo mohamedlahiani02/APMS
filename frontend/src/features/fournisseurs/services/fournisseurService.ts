@@ -19,7 +19,7 @@ export async function getFournisseur(id: string): Promise<Fournisseur> {
 }
 
 export async function createFournisseur(data: FournisseurInput): Promise<Fournisseur> {
-  const res = await apiClient.post<Fournisseur>('/fournisseurs', data);
+  const res = await apiClient.post<Fournisseur>('/fournisseurs', { ...data, email: data.email || undefined });
   return res.data;
 }
 
@@ -27,7 +27,7 @@ export async function updateFournisseur(
   id: string,
   data: Omit<FournisseurInput, 'code'>
 ): Promise<Fournisseur> {
-  const res = await apiClient.put<Fournisseur>(`/fournisseurs/${id}`, data);
+  const res = await apiClient.put<Fournisseur>(`/fournisseurs/${id}`, { ...data, email: data.email || null });
   return res.data;
 }
 

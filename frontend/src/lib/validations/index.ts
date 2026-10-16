@@ -15,7 +15,7 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
-const PASSWORD_STRONG = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#+\-_]).{8,100}$/;
+const PASSWORD_STRONG = /^(?=.*[a-zA-Z])(?=.*\d).{8,72}$/;
 
 export const changePasswordSchema = z
   .object({
@@ -24,7 +24,7 @@ export const changePasswordSchema = z
       .string()
       .regex(
         PASSWORD_STRONG,
-        'Doit contenir au moins 8 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial (@$!%*?&#+-_)'
+        'Doit contenir de 8 à 72 caractères, une lettre et un chiffre'
       ),
     confirmPassword: z.string().min(1, 'Confirmation requise'),
   })
@@ -35,24 +35,24 @@ export const changePasswordSchema = z
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
 export const familleSchema = z.object({
-  code: z.string().min(1, 'Code requis').regex(/^\S+$/, "Pas d'espace autorisé"),
+  code: z.string().min(1, 'Code requis').max(10, 'Code trop long').regex(/^\S+$/, "Pas d'espace autorisé"),
   nom: z.string().min(1, 'Nom requis').max(100, 'Nom trop long'),
   description: z.string().max(500, 'Description trop longue').optional().or(z.literal('')),
 });
 export type FamilleInput = z.infer<typeof familleSchema>;
 
 export const fournisseurSchema = z.object({
-  code: z.string().min(1, 'Code requis').regex(/^\S+$/, "Pas d'espace autorisé"),
+  code: z.string().min(1, 'Code requis').max(20, 'Code trop long').regex(/^\S+$/, "Pas d'espace autorisé"),
   nom: z.string().min(2, 'Nom requis').max(200, 'Nom trop long'),
   adresse: z.string().max(500, 'Adresse trop longue').optional().or(z.literal('')),
   telephone: z.string().max(30, 'Téléphone trop long').optional().or(z.literal('')),
   email: z.string().email('Email invalide').max(255).optional().or(z.literal('')),
-  contactPrincipal: z.string().max(200, 'Trop long').optional().or(z.literal('')),
+  contactPrincipal: z.string().max(100, 'Trop long').optional().or(z.literal('')),
 });
 export type FournisseurInput = z.infer<typeof fournisseurSchema>;
 
 export const magasinSchema = z.object({
-  code: z.string().min(1, 'Code requis').regex(/^\S+$/, "Pas d'espace autorisé"),
+  code: z.string().min(1, 'Code requis').max(20, 'Code trop long').regex(/^\S+$/, "Pas d'espace autorisé"),
   nom: z.string().min(2, 'Nom requis').max(200, 'Nom trop long'),
   adresse: z.string().max(500, 'Adresse trop longue').optional().or(z.literal('')),
   ville: z.string().max(100, 'Trop long').optional().or(z.literal('')),
@@ -70,22 +70,22 @@ export type ProduitInput = z.infer<typeof produitSchema>;
 
 export const userCreateSchema = z.object({
   email: z.string().min(1, 'Email requis').email('Email invalide').max(255, 'Email trop long'),
-  firstName: z.string().max(100, 'Prénom trop long').optional().or(z.literal('')),
-  lastName: z.string().max(100, 'Nom trop long').optional().or(z.literal('')),
+  firstName: z.string().trim().min(1, 'Prénom requis').max(100, 'Prénom trop long'),
+  lastName: z.string().trim().min(1, 'Nom requis').max(100, 'Nom trop long'),
   role: z.enum(['ADMIN', 'SECRETAIRE']),
   password: z
     .string()
     .min(1, 'Mot de passe requis')
     .regex(
       PASSWORD_STRONG,
-      'Mot de passe trop faible (≥8 car., 1 majuscule, 1 minuscule, 1 chiffre, 1 spécial @$!%*?&#+-_)'
+      'De 8 à 72 caractères, une lettre et un chiffre requis'
     ),
 });
 export type UserCreateInput = z.infer<typeof userCreateSchema>;
 
 export const userUpdateSchema = z.object({
-  firstName: z.string().max(100, 'Prénom trop long').optional().or(z.literal('')),
-  lastName: z.string().max(100, 'Nom trop long').optional().or(z.literal('')),
+  firstName: z.string().trim().min(1, 'Prénom requis').max(100, 'Prénom trop long'),
+  lastName: z.string().trim().min(1, 'Nom requis').max(100, 'Nom trop long'),
   role: z.enum(['ADMIN', 'SECRETAIRE']),
   isActive: z.boolean(),
 });
@@ -132,7 +132,7 @@ export const venteLigneSchema = z.object({
 });
 
 export const venteSchema = z.object({
-  venteDate: z.string().min(1, 'Date requise'),
+  venteDate: notFutureNotBeforeJan1("Date invalide (ni future, ni avant le 1er janvier de l'année en cours)"),
   magasinId: z.string().min(1, 'Magasin requis'),
   lignes: z.array(venteLigneSchema).min(1, 'Au moins une ligne de produit est requise'),
 });

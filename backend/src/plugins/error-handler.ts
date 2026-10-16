@@ -1,6 +1,7 @@
 import fp from "fastify-plugin";
 import type { FastifyPluginAsync } from "fastify";
 import { ZodError } from "zod";
+import { Prisma } from "@prisma/client";
 import { ApmsException, DomainException } from "../common/errors.js";
 
 interface ApiErrorBody {
@@ -42,7 +43,13 @@ export const errorHandlerPlugin: FastifyPluginAsync = fp(async (app) => {
       return;
     }
 
-    const statusCode = error.statusCode;
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return reply.status(409).send({ code: 'DUPLICATE_VALUE', message: 'Cette valeur existe déjà.', traceId });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+      return reply.status(422).send({ code: 'INVALID_REFERENCE', message: 'Une référence est invalide ou encore utilisée.', traceId });
+    }
+    const statusCode = (caught as Error & { statusCode?: number }).statusCode;
     if (statusCode && statusCode < 500) {
       const body: ApiErrorBody = { code: "BAD_REQUEST", message: error.message, traceId };
       reply.status(statusCode).send(body);

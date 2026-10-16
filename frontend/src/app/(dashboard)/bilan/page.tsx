@@ -1,178 +1,144 @@
 'use client';
-
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getAnnualReport } from '@/features/analytics/services/analyticsService';
 import { formatDinar } from '@/utils';
-import { familleBadgeColor } from '@/lib/constants';
-import Badge from '@/components/ui/Badge';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
-import { useState } from 'react';
+import ApiErrorBanner from '@/components/shared/ApiErrorBanner';
 
 const currentYear = new Date().getFullYear();
-
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <p className="text-sm text-gray-500 mb-1">{label}</p>
-      <p className="text-2xl font-bold text-green-600">{formatDinar(value)}</p>
-    </div>
-  );
-}
-
-function SectionBar({
-  name,
-  achat,
-  vente,
-  stock,
-  max,
-  barColor,
-  badge,
-}: {
-  name: string;
-  achat: number;
-  vente: number;
-  stock: number;
-  max: number;
-  barColor: string;
-  badge?: React.ReactNode;
-}) {
-  const pct = max > 0 ? Math.min(Math.round((achat / max) * 100), 100) : 0;
-  return (
-    <div className="px-6 py-4 border-b border-gray-100 last:border-b-0">
-      <div className="flex items-center gap-2 mb-3">
-        <p className="font-semibold text-gray-900">{name}</p>
-        {badge}
-      </div>
-      <div className="grid grid-cols-3 gap-4 mb-3">
-        <div>
-          <p className="text-xs text-gray-500 mb-0.5">Achat</p>
-          <p className="text-sm font-semibold text-gray-900">{formatDinar(achat)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-500 mb-0.5">Vente</p>
-          <p className="text-sm font-semibold text-green-600">{formatDinar(vente)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-500 mb-0.5">Stock</p>
-          <p className="text-sm font-semibold text-blue-600">{formatDinar(stock)}</p>
-        </div>
-      </div>
-      <div className="bg-gray-100 rounded-full h-2 overflow-hidden">
-        <div className={`${barColor} h-2 rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
-
 export default function BilanPage() {
   const [year, setYear] = useState(currentYear);
-
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['analytics', 'bilan', year],
     queryFn: () => getAnnualReport(year),
   });
-
-  if (isLoading) return <LoadingSpinner fullPage />;
-  if (!data) return null;
-
-  const { cumulative, parFournisseur, parMagasin, parFamille } = data;
-
-  const maxFournisseur = Math.max(...(parFournisseur?.map((r) => r.totalAchat) ?? [1]), 1);
-  const maxMagasin = Math.max(...(parMagasin?.map((r) => r.totalAchat) ?? [1]), 1);
-  const maxFamille = Math.max(...(parFamille?.map((r) => r.totalAchat) ?? [1]), 1);
-
   return (
-    <div className="w-full space-y-6">
+    <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Bilan Annuel</h1>
-          <p className="text-gray-500 text-sm mt-1">Cumul annuel — {year}</p>
+          <p className="text-sm text-gray-500 mt-1">{data?.label ?? year}</p>
         </div>
         <select
+          aria-label="Année"
           value={year}
-          onChange={(e) => setYear(Number.parseInt(e.target.value, 10))}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
+          onChange={(e) => setYear(Number(e.target.value))}
+          className="border rounded-lg px-3 py-2 bg-white"
         >
-          {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
+          {[currentYear - 2, currentYear - 1, currentYear].map((y) => (
+            <option key={y}>{y}</option>
           ))}
         </select>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard label="Total Achat Cumulé" value={cumulative.totalAchat} />
-        <StatCard label="Total Vente Cumulée" value={cumulative.totalVente} />
-        <StatCard label="Valeur Stock Totale" value={cumulative.totalValeur} />
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
-          <h2 className="font-semibold text-gray-800">Par Fournisseur</h2>
-          <span className="bg-gray-100 text-gray-600 text-xs font-semibold rounded-full px-2 py-0.5">
-            {parFournisseur?.length ?? 0}
-          </span>
-        </div>
-        <div>
-          {parFournisseur?.map((row) => (
-            <SectionBar
-              key={row.fournisseurId}
-              name={row.fournisseurNom}
-              achat={row.totalAchat}
-              vente={row.totalVente}
-              stock={row.totalValeur}
-              max={maxFournisseur}
-              barColor="bg-green-500"
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
-          <h2 className="font-semibold text-gray-800">Par Magasin</h2>
-          <span className="bg-purple-100 text-purple-700 text-xs font-semibold rounded-full px-2 py-0.5">
-            {parMagasin?.length ?? 0}
-          </span>
-        </div>
-        <div>
-          {parMagasin?.map((row) => (
-            <SectionBar
-              key={row.magasinId}
-              name={row.magasinNom}
-              achat={row.totalAchat}
-              vente={row.totalVente}
-              stock={row.totalValeur}
-              max={maxMagasin}
-              barColor="bg-purple-500"
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
-          <h2 className="font-semibold text-gray-800">Par Famille</h2>
-          <span className="bg-orange-100 text-orange-700 text-xs font-semibold rounded-full px-2 py-0.5">
-            {parFamille?.length ?? 0}
-          </span>
-        </div>
-        <div>
-          {parFamille?.map((row) => (
-            <SectionBar
-              key={row.familleId}
-              name={row.familleNom}
-              achat={row.totalAchat}
-              vente={row.totalVente}
-              stock={row.totalValeur}
-              max={maxFamille}
-              barColor="bg-orange-400"
-              badge={<Badge className={familleBadgeColor(row.familleNom)}>{row.familleNom}</Badge>}
-            />
-          ))}
-        </div>
-      </div>
+      <ApiErrorBanner error={error} />
+      {isLoading && <LoadingSpinner />}
+      {data && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[
+              ['Total Achats Cumulés', data.cumulAchat],
+              ['Total Ventes Cumulées', data.cumulVente],
+              ['Marge Cumulée', data.cumulMarge],
+              ['Valeur Stock en Fin de Période', data.cumValeur],
+            ].map(([label, value]) => (
+              <div
+                key={String(label)}
+                className="bg-white rounded-xl border p-5"
+              >
+                <p className="text-sm text-gray-500">{label}</p>
+                <p className="text-xl font-bold mt-2">
+                  {formatDinar(Number(value))}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="bg-white rounded-xl border overflow-x-auto">
+            <h2 className="font-semibold px-5 py-4 border-b">
+              Évolution mensuelle
+            </h2>
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left p-4">Mois</th>
+                  <th className="text-right p-4">Achats TTC</th>
+                  <th className="text-right p-4">Ventes TTC</th>
+                  <th className="text-right p-4">Lignes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.evolution.map((row) => (
+                  <tr key={row.month} className="border-t">
+                    <td className="p-4">{row.monthLabel}</td>
+                    <td className="p-4 text-right">
+                      {formatDinar(row.totalAchat)}
+                    </td>
+                    <td className="p-4 text-right">
+                      {formatDinar(row.totalVente)}
+                    </td>
+                    <td className="p-4 text-right">{row.nbTx}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-sm text-gray-500">
+            Classements du dernier mois de la période. Les cumuls annuels
+            figurent ci-dessus.
+          </p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {[
+              {
+                title: 'Fournisseurs',
+                rows: data.topFournisseurs.map((r) => ({
+                  id: r.fournisseurId,
+                  name: r.fournisseurNom,
+                  value: r.totalVente,
+                })),
+              },
+              {
+                title: 'Familles',
+                rows: data.topFamilles.map((r) => ({
+                  id: r.familleId,
+                  name: r.familleNom,
+                  value: r.totalVente,
+                })),
+              },
+              {
+                title: 'Magasins',
+                rows: data.topMagasins.map((r) => ({
+                  id: r.magasinId,
+                  name: r.magasinNom,
+                  value: r.totalVente,
+                })),
+              },
+            ].map((group) => (
+              <section
+                key={group.title}
+                className="bg-white rounded-xl border p-5"
+              >
+                <h2 className="font-semibold mb-3">
+                  {group.title} — Ventes TTC
+                </h2>
+                {group.rows.length === 0 && (
+                  <p className="text-sm text-gray-500">Aucune donnée</p>
+                )}
+                {group.rows.map((row) => (
+                  <div
+                    key={row.id}
+                    className="flex justify-between gap-4 border-t py-3 text-sm"
+                  >
+                    <span>{row.name}</span>
+                    <span className="font-semibold">
+                      {formatDinar(row.value)}
+                    </span>
+                  </div>
+                ))}
+              </section>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

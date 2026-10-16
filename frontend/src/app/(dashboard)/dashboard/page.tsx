@@ -6,6 +6,7 @@ import { getDashboard, getDrilldown } from '@/features/analytics/services/analyt
 import { formatDinar } from '@/utils';
 import { familleBadgeColor, MONTHS } from '@/lib/constants';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
+import ApiErrorBanner from '@/components/shared/ApiErrorBanner';
 import Badge from '@/components/ui/Badge';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -50,7 +51,7 @@ function FournisseurDrilldown({
   year: number;
   month: number;
 }) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['analytics', 'drilldown', 'fournisseurs', fournisseurId, year, month],
     queryFn: () => getDrilldown('fournisseurs', fournisseurId, { year, month }),
   });
@@ -60,7 +61,7 @@ function FournisseurDrilldown({
       <td colSpan={5} className="px-0 py-0">
         <div className="bg-gray-50 border-t border-gray-100 px-6 py-4">
           <p className="text-sm font-semibold text-gray-700 mb-3">Détail stock — {fournisseurNom}</p>
-          {isLoading ? (
+          {error ? <ApiErrorBanner error={error} /> : isLoading ? (
             <div className="flex justify-center py-4">
               <LoadingSpinner />
             </div>
@@ -87,7 +88,7 @@ function FournisseurDrilldown({
                     <td className="py-2 pr-4 text-right">{item.qteStock}</td>
                     <td className="py-2 pr-4">{item.magasinNom}</td>
                     <td className="py-2 pr-4 text-right">{item.cmupCumule == null ? '—' : formatDinar(item.cmupCumule)}</td>
-                    <td className="py-2 text-right">{formatDinar(item.valeurStock ?? 0)}</td>
+                    <td className="py-2 text-right">{formatDinar(item.totalValeur)}</td>
                   </tr>
                 ))}
                 {data?.items.length === 0 && (
@@ -119,7 +120,7 @@ export default function DashboardPage() {
     }
   }, [user, router]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['analytics', 'dashboard', year, monthIndex + 1],
     queryFn: () => getDashboard({ year, month: monthIndex + 1 }),
     enabled: user?.role === 'ADMIN',
@@ -127,11 +128,11 @@ export default function DashboardPage() {
 
   if (isLoading || user?.role === 'SECRETAIRE') return <LoadingSpinner fullPage />;
 
-  const kpi = data?.global;
+  const kpi = data?.totals;
   const parFournisseur = data?.parFournisseur ?? [];
   const parFamille = data?.parFamille ?? [];
-  const topVendues = data?.topFamillesVendues ?? [];
-  const topStockees = data?.topFamillesStockees ?? [];
+  const topVendues = data?.topFamillesParVente ?? [];
+  const topStockees = data?.topFamillesParValeur ?? [];
 
   const maxVente = Math.max(...topVendues.map((r) => r.totalVente ?? 0), 1);
   const maxStock = Math.max(...topStockees.map((r) => r.totalValeur ?? 0), 1);
@@ -146,10 +147,14 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2">
           <select
             value={year}
-            onChange={(e) => setYear(Number.parseInt(e.target.value, 10))}
+            onChange={(e) => {
+              const nextYear = Number(e.target.value);
+              setYear(nextYear);
+              if (nextYear === currentYear && monthIndex > currentMonthIndex) setMonthIndex(currentMonthIndex);
+            }}
             className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
           >
-            {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
+            {[currentYear - 2, currentYear - 1, currentYear].map((y) => (
               <option key={y} value={y}>
                 {y}
               </option>
@@ -161,7 +166,7 @@ export default function DashboardPage() {
             className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
           >
             {MONTHS.map((m, i) => (
-              <option key={m} value={i}>
+              <option key={m} value={i} disabled={year === currentYear && i > currentMonthIndex}>
                 {m}
               </option>
             ))}
@@ -169,6 +174,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <ApiErrorBanner error={error} />
       {kpi && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <KpiCard label="Total Achats TTC" value={kpi.totalAchat} icon={ShoppingCart} color="bg-blue-500" />
@@ -189,7 +195,7 @@ export default function DashboardPage() {
                 <th className="text-left px-5 py-3">Fournisseur</th>
                 <th className="text-right px-5 py-3">Total Achat TTC</th>
                 <th className="text-right px-5 py-3">Total Vente TTC</th>
-                <th className="text-right px-5 py-3">Valeur Stocks</th>
+                <th className="text-right px-5 py-3">Marge</th>
                 <th className="px-5 py-3" />
               </tr>
             </thead>
@@ -205,7 +211,7 @@ export default function DashboardPage() {
                       <td className="px-5 py-3 font-medium text-gray-900">{row.fournisseurNom}</td>
                       <td className="px-5 py-3 text-right text-gray-600">{formatDinar(row.totalAchat)}</td>
                       <td className="px-5 py-3 text-right text-green-600 font-medium">{formatDinar(row.totalVente)}</td>
-                      <td className="px-5 py-3 text-right text-gray-600">{formatDinar(row.totalValeur)}</td>
+                      <td className="px-5 py-3 text-right text-gray-600">{formatDinar(row.marge)}</td>
                       <td className="px-5 py-3 text-gray-400">{isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</td>
                     </tr>
                     {isExpanded && (

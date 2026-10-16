@@ -1,14 +1,13 @@
 import { z } from "zod";
 import { pageQuerySchema } from "../common/pagination.js";
 
-export const isoDateSchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide (format attendu : YYYY-MM-DD).");
+import { isoDateSchema } from '../common/date-schema.js';
+export { isoDateSchema };
 
 export const blAchatLigneInputSchema = z.object({
   produitId: z.string().uuid(),
-  qteAchetee: z.number().positive(),
-  prixAchatNetHt: z.number().nonnegative(),
+  qteAchetee: z.number().min(0.001).max(999999999.999),
+  prixAchatNetHt: z.number().nonnegative().max(999999999.999),
   tauxTva: z.union([z.literal(7), z.literal(13), z.literal(19)]),
 });
 

@@ -1,29 +1,26 @@
 # APMS
 
-Auto-parts purchases/sales/stock/analytics management for a Tunisian SME
-("SIA-APMS"). Full rewrite of the original Spring Boot + Next.js/Electron
-system: Node.js/TypeScript backend (Fastify + Prisma, reusing the existing
-PostgreSQL schema) and a fresh Next.js web frontend (no Electron shell).
+French-language auto-parts purchases, sales, stock and analytics for a Tunisian SME. Fastify + TypeScript + Prisma/PostgreSQL 15 backend and a Next.js web frontend. This rewrite reuses the production database schema and reporting functions; users open a browser, with no Electron installer.
 
-See `C:\Users\haith\.claude\plans\clever-orbiting-jellyfish.md` (or the project
-memory) for the full rewrite plan and the business logic being preserved.
+## Start locally
 
-## Local development
+1. From ops run docker compose up -d.
+2. Restore the handover database into the empty local development database. Keep the sensitive dump outside this repository.
+3. In backend run npm ci, configure .env from .env.example, then npm run prisma:generate. Baseline/migration instructions are in docs/RUNBOOK.md.
+4. Run npm run dev in backend, then npm ci and npm run dev in frontend.
+5. Open http://127.0.0.1:3000. Browser API requests use the web origin; Next.js forwards them to the backend on port 3001.
 
-```powershell
-cd ops; docker compose up -d        # PostgreSQL 15 on 127.0.0.1:5433
-cd ../backend
-npm install
-cp .env.example .env                # fill in DATABASE_URL / JWT_SECRET
-npm run prisma:generate
-npm run dev                         # http://127.0.0.1:3001
-```
+## Verify
 
-Restore a copy of a production dump into the local database with
-`pg_restore` (inside the `apms-rewrite-postgres` container, since no local
-libpq client is assumed):
+Run ./scripts/verify.ps1 from PowerShell. The backend suites use the restored local database on loopback port 5433. The checks include complete HTTP workflows, role restrictions, stock draw/reverse/redraw and concurrent requests. Build outputs and secrets are ignored by Git.
 
-```powershell
-docker cp path\to\dump.dump apms-rewrite-postgres:/tmp/apms.dump
-docker exec apms-rewrite-postgres pg_restore -U apms_user -d apms --no-owner --role=apms_user -v /tmp/apms.dump
-```
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Business rules](docs/BUSINESS_RULES.md)
+- [API contract](docs/API_CONTRACT.md)
+- [Runbook](docs/RUNBOOK.md)
+- [Known constraints](docs/KNOWN_ISSUES.md)
+- [Verification record](docs/VERIFICATION.md)
+
+Server deployment and production cutover are outside the offline rewrite scope.

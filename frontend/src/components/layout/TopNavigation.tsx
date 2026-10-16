@@ -3,6 +3,8 @@
 import { LogOut, User, Wrench } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
+import { useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard KPI',
@@ -13,17 +15,21 @@ const PAGE_TITLES: Record<string, string> = {
   '/magasins': 'Magasins',
   '/bilan': 'Bilan Annuel',
   '/utilisateurs': 'Utilisateurs',
+  '/stock': 'Stock disponible',
+  '/audit': 'Journal d’audit',
 };
 
 export default function TopNavigation() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const pathname = usePathname();
   const pageTitle = PAGE_TITLES[pathname] ?? '';
 
   const handleLogout = async () => {
     await logout();
+    queryClient.clear();
     router.replace('/login');
   };
 
@@ -48,6 +54,7 @@ export default function TopNavigation() {
           </div>
           <span className="font-medium">{fullName}</span>
         </div>
+        <Link href="/change-password" className="text-sm text-gray-500 hover:text-gray-900">Mot de passe</Link>
         <button
           onClick={handleLogout}
           className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-600 transition-colors"

@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   BarChart2,
   UserCog,
+  ScrollText,
 } from 'lucide-react';
 import { cn } from '@/utils';
 import { useAuthStore } from '@/store/authStore';
@@ -34,20 +35,19 @@ const ADMIN_MENU = [
     items: [
       { href: '/dashboard', label: 'Dashboard KPI', icon: LayoutDashboard },
       { href: '/bilan', label: 'Bilan Annuel', icon: BarChart2 },
+      { href: '/stock', label: 'Stock disponible', icon: Package },
     ],
   },
   {
     section: 'ADMINISTRATION',
-    items: [{ href: '/utilisateurs', label: 'Utilisateurs', icon: UserCog }],
+    items: [
+      { href: '/utilisateurs', label: 'Utilisateurs', icon: UserCog },
+      { href: '/audit', label: 'Journal d’audit', icon: ScrollText },
+    ],
   },
 ];
 
-const SECRETAIRE_MENU = [
-  {
-    section: 'SAISIE',
-    items: [{ href: '/transactions', label: 'Saisie Transactions', icon: ClipboardList }],
-  },
-];
+const SECRETAIRE_MENU = ADMIN_MENU.filter((group) => ['SAISIE', 'RÉFÉRENTIEL'].includes(group.section));
 
 export default function Sidebar() {
   const pathname = usePathname();

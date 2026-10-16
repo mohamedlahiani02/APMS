@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useId } from 'react';
 
 /**
  * Searchable async combobox backed by a `/{resource}/lookup?q=` endpoint — per
@@ -35,6 +35,8 @@ export default function SearchSelect<T>({
   disabled?: boolean;
   queryKey: string;
 }) {
+  const inputId = useId();
+  const [chosen, setChosen] = useState<{ id: string; label: string } | null>(null);
   const [term, setTerm] = useState('');
   const [open, setOpen] = useState(false);
   const [debounced, setDebounced] = useState('');
@@ -52,15 +54,20 @@ export default function SearchSelect<T>({
   });
 
   const selected = results.find((r) => getId(r) === value);
-  const displayValue = term || (selected ? getLabel(selected) : value ? (initialLabel ?? '') : '');
+  const displayValue = term || (selected ? getLabel(selected) : value ? (chosen?.id === value ? chosen.label : initialLabel ?? '') : '');
 
   return (
     <div className="relative flex flex-col gap-1">
-      {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
+      {label && <label htmlFor={inputId} className="text-sm font-medium text-gray-700">{label}</label>}
       <div className="relative">
         <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
+          id={inputId}
           type="text"
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={inputId + "-options"}
+          autoComplete="off"
           disabled={disabled}
           placeholder={placeholder}
           className="w-full rounded-lg border border-gray-300 bg-gray-50 pl-8 pr-2 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white disabled:opacity-60"
@@ -75,7 +82,7 @@ export default function SearchSelect<T>({
         />
       </div>
       {open && !disabled && (
-        <div className="absolute z-20 top-full mt-1 w-full max-h-56 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+        <div id={inputId + "-options"} role="listbox" className="absolute z-20 top-full mt-1 w-full max-h-56 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
           {isFetching ? (
             <div className="px-3 py-2 text-xs text-gray-400">Recherche...</div>
           ) : results.length === 0 ? (
@@ -88,6 +95,7 @@ export default function SearchSelect<T>({
                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 text-gray-900"
                 onMouseDown={(e) => {
                   e.preventDefault();
+                  setChosen({ id: getId(item), label: getLabel(item) });
                   onChange(getId(item), item);
                   setTerm('');
                   setOpen(false);

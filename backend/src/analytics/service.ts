@@ -452,6 +452,7 @@ export interface DrilldownItem {
   totalAchat: number;
   totalVente: number;
   qteStock: number;
+  cmupCumule: number | null;
   totalValeur: number;
   qteDeficit: number;
   nbTx: number;
@@ -524,6 +525,7 @@ export async function getDrilldown(
       totalAchat: toNum(r.total_achat_ttc),
       totalVente: toNum(r.total_vente_ttc),
       qteStock: toNum(r.qte_stock),
+      cmupCumule: r.cmup_cumule == null ? null : Number(r.cmup_cumule),
       totalValeur: toNum(r.valeur_stock),
       qteDeficit: toNum(r.qte_deficit),
       nbTx: toNum(r.nb_tx),

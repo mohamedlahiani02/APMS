@@ -125,11 +125,13 @@ VenteResponse = {
 - `GET /analytics/annual-report?year` -> `AnnualReportResponse`.
 - `GET /analytics/drilldown/{familles|fournisseurs|magasins}/{id}?year&month` -> drilldown response.
 
-Exact numeric field names may follow the DB snapshot columns closely (e.g.
-`totalAchat`, `totalVente`, `marge`, `tauxMarge`, `totalValeur`, `nbTx`,
-`qteDeficit`) — the analytics agent owns the precise shape since it reflects the
-underlying SQL functions; keep names self-explanatory and consistent across the
-three endpoints.
+Responses use these implemented shapes:
+
+- Dashboard: { year, month, totals: { totalAchat, totalVente, marge, tauxMarge, totalValeur, nbTx }, parFournisseur, parFamille, parMagasin, topFamillesParVente, topFamillesParValeur }. tauxMarge is null when sales are zero. Supplier rows expose pctAchatDuTop and omit totalValeur.
+- Annual: { year, upToMonth, label, evolution: [{ month, monthLabel, totalAchat, totalVente, nbTx }], cumulAchat, cumulVente, cumulMarge, cumulNbTx, cumValeur, topFournisseurs, topFamilles, topMagasins }. Rankings are for the end-period month; cumulative values sum the year's direct transaction totals.
+- Drilldown: { dimension, id, nom, year, month, items, totals }. Items include product/store/supplier/family IDs and names, qteAchetee, qteVendue, totalAchat, totalVente, qteStock, cmupCumule (nullable), totalValeur, qteDeficit and nbTx. Totals include totalAchat, totalVente, totalValeur, qteDeficit and nbTx, with marge for suppliers.
+
+Future periods return 400. See backend/src/analytics/service.ts for precise interfaces.
 
 ## Audit (`/audit`, ADMIN only)
 

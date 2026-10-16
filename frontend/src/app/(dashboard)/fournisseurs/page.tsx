@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { invalidateReference } from '@/lib/api/cache';
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -56,7 +57,7 @@ function FournisseurForm({ onClose, initial }: { onClose: () => void; initial?: 
           })
         : createFournisseur(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['fournisseurs'] });
+      invalidateReference(qc, 'fournisseurs');
       onClose();
     },
   });
@@ -69,7 +70,7 @@ function FournisseurForm({ onClose, initial }: { onClose: () => void; initial?: 
           label="Code *"
           placeholder="Code fournisseur"
           error={errors.code?.message}
-          disabled={isEditing}
+          readOnly={isEditing}
           {...register('code')}
         />
         <Input id="nom" label="Nom *" placeholder="Nom du fournisseur" error={errors.nom?.message} {...register('nom')} />
@@ -123,7 +124,7 @@ export default function FournisseursPage() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['fournisseurs', page, search],
     queryFn: () => listFournisseurs({ page, size: PAGE_SIZE, search: search || undefined }),
     placeholderData: keepPreviousData,
@@ -135,7 +136,7 @@ export default function FournisseursPage() {
   const deleteMutation = useMutation({
     mutationFn: deleteFournisseur,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['fournisseurs'] });
+      invalidateReference(qc, 'fournisseurs');
       setDeleteId(null);
       setDeleteError(null);
     },
@@ -173,6 +174,7 @@ export default function FournisseursPage() {
         />
       </div>
 
+      <ApiErrorBanner error={error} />
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {isLoading ? (
           <LoadingSpinner fullPage />

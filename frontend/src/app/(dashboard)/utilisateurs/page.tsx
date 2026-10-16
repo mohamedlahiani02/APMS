@@ -51,8 +51,8 @@ function CreateUserForm({ onClose }: { onClose: () => void }) {
     mutationFn: (data: UserCreateInput) =>
       createUser({
         email: data.email,
-        firstName: data.firstName || null,
-        lastName: data.lastName || null,
+        firstName: data.firstName,
+        lastName: data.lastName,
         role: data.role,
         password: data.password,
       }),
@@ -120,8 +120,8 @@ function EditUserForm({ onClose, initial }: { onClose: () => void; initial: User
   const mutation = useMutation({
     mutationFn: (data: UserUpdateInput) =>
       updateUser(initial.id, {
-        firstName: data.firstName || null,
-        lastName: data.lastName || null,
+        firstName: data.firstName,
+        lastName: data.lastName,
         role: data.role,
         isActive: data.isActive,
       }),
@@ -231,7 +231,7 @@ export default function UtilisateursPage() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['users', page, search],
     queryFn: () => listUsers({ page, size: PAGE_SIZE, search: search || undefined }),
     placeholderData: keepPreviousData,
@@ -309,6 +309,7 @@ export default function UtilisateursPage() {
         />
       </div>
 
+      <ApiErrorBanner error={error} />
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {isLoading ? (
           <LoadingSpinner fullPage />
