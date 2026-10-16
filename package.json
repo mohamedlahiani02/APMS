@@ -1,0 +1,17 @@
+{
+  "name": "apms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "APMS application deployment",
+  "engines": {
+    "node": "^22.13.0 || ^24.0.0"
+  },
+  "scripts": {
+    "setup": "node ops/plesk/build.cjs --install",
+    "build": "node ops/plesk/build.cjs",
+    "start": "node app.js",
+    "check:startup": "node --check app.js && node --check ops/plesk/server.cjs",
+    "smoke:deploy": "node ops/plesk/smoke.cjs",
+    "diagnose:host": "node ops/plesk/diagnose.cjs"
+  }
+}

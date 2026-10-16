@@ -1,4 +1,4 @@
-import { buildApp } from "./app.js";
+import { buildApp, type AppOptions } from "./app.js";
 import { registerAuthRoutes } from "./auth/routes.js";
 import { registerUserRoutes } from "./users/routes.js";
 import { registerFamilleRoutes } from "./familles/routes.js";
@@ -13,8 +13,8 @@ import { registerAuditRoutes } from "./audit/routes.js";
 import { registerExportRoutes } from "./export/routes.js";
 
 /** Complete application, shared by the real server and HTTP integration tests. */
-export async function buildApplication() {
-  const app = await buildApp();
+export async function buildApplication(options: AppOptions = {}) {
+  const app = await buildApp(options);
   await app.register(registerAuthRoutes, { prefix: "/api/v1" });
   await app.register(registerUserRoutes, { prefix: "/api/v1" });
   await app.register(registerFamilleRoutes, { prefix: "/api/v1" });

@@ -26,6 +26,8 @@ services:
       - ../backend/.env
     environment:
       NODE_ENV: production
+      # Local preview uses the private development database without TLS.
+      DATABASE_TLS_MODE: disable
       HOST: 0.0.0.0
       PORT: 3001
       DATABASE_URL: postgresql://apms_user:apms_dev_local_only@postgres:5432/apms?schema=public
