@@ -4,7 +4,7 @@ This runbook covers the offline rewrite. Production deployment/cutover is a sepa
 
 ## Database
 
-From ops run docker compose up -d. PostgreSQL is exposed only at 127.0.0.1:5433 in container apms-rewrite-postgres. The compose password is for this local container only. Do not use production service scripts or port 5432.
+For Node.js development, from ops run docker compose up -d postgres. PostgreSQL is exposed only at 127.0.0.1:5433 in container apms-rewrite-postgres. The compose password is for this local container only. Do not use production service scripts or port 5432.
 
 For a new development volume, restore the handover dump into the empty apms database with pg_restore --no-owner --role=apms_user. The dump contains real business data: keep it outside this repository. Do not use --clean against an existing development database. Copy backend/.env.example to backend/.env and set DATABASE_URL for that local container and a fresh random JWT_SECRET with at least 32 characters. Never commit .env.
 
@@ -16,7 +16,15 @@ An empty schema can be created with prisma migrate deploy, but it contains no bu
 
 To add a fresh local administrator without changing restored accounts, set APMS_ADMIN_EMAIL and APMS_ADMIN_PASSWORD in the terminal environment, then run npm run admin:create in backend. The command only accepts loopback port 5433, refuses existing email addresses and requires a password change at first login. Clear those environment variables afterward; never put them in source control. Existing administrators can also manage users through /utilisateurs.
 
-## Run
+## Run the full stack in Docker
+
+From the repository root run docker compose -f ops/docker-compose.yml up -d --build. The existing backend/.env supplies the JWT configuration, while Compose overrides DATABASE_URL to use the private postgres service. Environment files and host node_modules/build output are excluded from both image build contexts.
+
+The web app is http://127.0.0.1:3100; the TypeScript API is http://127.0.0.1:3101, with /internal/ready checking database connectivity. All published ports bind to loopback. The frontend is built with BACKEND_ORIGIN=http://backend:3001 and uses same-origin /api/v1 in the browser. No request is directed to the legacy Java backend on host port 3001.
+
+Containers: apms-rewrite-frontend, apms-rewrite-backend and apms-rewrite-postgres. Use docker compose -f ops/docker-compose.yml ps and logs --tail 50 to inspect them. Rebuild images after source changes. Stop frontend/backend with the same Compose file; do not remove the database volume. Migrations are applied using the local backend Prisma commands described above, rather than automatically resetting a restored database at startup.
+
+## Run with Node.js
 
 In backend run npm run dev. In frontend run npm run dev and open http://127.0.0.1:3000. The frontend defaults to proxying /api/v1 to http://127.0.0.1:3001. For another backend port set BACKEND_ORIGIN before frontend build/start. To expose the web UI on a local network, configure the frontend host and keep the backend on loopback.
 

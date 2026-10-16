@@ -17,6 +17,49 @@ services:
       timeout: 5s
       retries: 10
 
+  backend:
+    build:
+      context: ../backend
+    image: apms-rewrite-backend:local
+    container_name: apms-rewrite-backend
+    env_file:
+      - ../backend/.env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3001
+      DATABASE_URL: postgresql://apms_user:apms_dev_local_only@postgres:5432/apms?schema=public
+    ports:
+      - "127.0.0.1:3101:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/internal/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        BACKEND_ORIGIN: http://backend:3001
+    image: apms-rewrite-frontend:local
+    container_name: apms-rewrite-frontend
+    ports:
+      - "127.0.0.1:3100:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
 volumes:
   apms_rewrite_pg_data:
     name: apms_rewrite_pg_data

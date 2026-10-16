@@ -2,9 +2,21 @@
 
 French-language auto-parts purchases, sales, stock and analytics for a Tunisian SME. Fastify + TypeScript + Prisma/PostgreSQL 15 backend and a Next.js web frontend. This rewrite reuses the production database schema and reporting functions; users open a browser, with no Electron installer.
 
-## Start locally
+## Run in Docker
 
-1. From ops run docker compose up -d.
+With backend/.env configured and the local database restored, run:
+
+```powershell
+docker compose -f ops/docker-compose.yml up -d --build
+```
+
+Open http://127.0.0.1:3100. The new TypeScript API is on 127.0.0.1:3101 and its PostgreSQL database on 127.0.0.1:5433. All three containers use the apms-rewrite prefix. The web container proxies API calls to the backend over Docker's private network. Existing legacy APMS containers are separate.
+
+Check status with docker compose -f ops/docker-compose.yml ps. To stop only the new web/API containers, run docker compose -f ops/docker-compose.yml stop frontend backend. Database data is stored in the existing named volume.
+
+## Develop with Node.js
+
+1. From ops run docker compose up -d postgres (database only).
 2. Restore the handover database into the empty local development database. Keep the sensitive dump outside this repository.
 3. In backend run npm ci, configure .env from .env.example, then npm run prisma:generate. Baseline/migration instructions are in docs/RUNBOOK.md.
 4. Run npm run dev in backend, then npm ci and npm run dev in frontend.

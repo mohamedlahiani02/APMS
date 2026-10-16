@@ -19,3 +19,7 @@ The legacy visual-style repository and the live production UI were not inspected
 ## Publication and deployment
 
 GitHub origin access was confirmed. The repository is public and had no remote branches when inspected. No source or sensitive handover data was published by this verification. GitHub Actions cannot be claimed as passing until the workflow is published and actually runs. Server cutover remains outside the rewrite scope.
+
+## Container preview follow-up
+
+The full TypeScript stack was built and started in Docker on 2026-10-16. apms-rewrite-frontend, apms-rewrite-backend and apms-rewrite-postgres reported healthy on loopback ports 3100, 3101 and 5433. The login page, API database readiness, separate local demo administrator login, products, stock, sales, dashboard and combined Excel export all passed through the web container's API proxy. The legacy Java containers were left running unchanged. Demo credentials are stored only in the ignored backend/.env.local file and excluded from image contexts. Embedded browser access remains blocked by a saved permission setting; visual acceptance is still pending.
