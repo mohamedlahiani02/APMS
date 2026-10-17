@@ -8,7 +8,7 @@ export const viewport: Viewport = { themeColor: '#111827' };
 export const metadata: Metadata = {
   applicationName: 'APMS',
   appleWebApp: { capable: true, title: 'APMS', statusBarStyle: 'default' },
-  icons: { icon: '/icons/sia-192.png', apple: '/icons/sia-180.png' },
+  icons: { icon: '/pwa-icon/192', apple: '/pwa-icon/180' },
   title: 'APMS — Gestion Pièces Véhicules',
   description: 'Système de gestion des pièces de rechange auto (achats, ventes, stock, analytique)',
 };

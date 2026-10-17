@@ -61,3 +61,7 @@ Références : [Plesk Node.js](https://docs.plesk.com/en-US/obsidian/administrat
 ## Installation PWA sur Plesk
 
 Plesk peut répondre directement aux requêtes PNG depuis Document Root, avant Next.js. Les icônes du manifeste sont donc conservées à la fois sous frontend/public/icons et public/icons. La commande npm run setup les synchronise et npm run check:static-assets vérifie les copies. Après livraison, vérifier sur le domaine public que /manifest.webmanifest et les deux URL PNG du manifeste répondent en 200 avec des dimensions 192 × 192 et 512 × 512. Si une icône répond en 404, le navigateur ne pourra pas proposer l’installation, même si le manifeste et le service worker répondent en 200.
+
+## Routage des icônes PWA
+
+Si nginx de Plesk répond en 404 aux URL PNG de /icons même après le déploiement des fichiers et leur synchronisation, le manifeste et les métadonnées utilisent maintenant /pwa-icon/192, /pwa-icon/512 et /pwa-icon/180. Ces routes Next.js lisent les PNG versionnés depuis frontend/public/icons et renvoient image/png sans dépendre de la résolution statique du Document Root. Après npm run setup et Restart App, vérifier ces URL en 200, ainsi que les URL effectivement déclarées dans /manifest.webmanifest. Les anciennes URL /icons peuvent continuer à répondre en 404 sur cet hébergement ; elles ne sont plus nécessaires à l’installation.
