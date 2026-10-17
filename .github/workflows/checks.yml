@@ -32,6 +32,6 @@ jobs:
         env:
           APMS_SERVER_MODE: unified
       - name: Verify shared deployment startup without customer data
-        run: npm run check:startup && npm run smoke:deploy
+        run: npm run check:startup && npm run check:static-assets && npm run smoke:deploy
       # Full integration tests require the restored local dataset. A sensitive
       # production dump must never be uploaded to this public repository/CI.
