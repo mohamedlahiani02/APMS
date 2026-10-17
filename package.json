@@ -12,6 +12,7 @@
     "start": "node app.js",
     "check:startup": "node --check app.js && node --check ops/plesk/server.cjs",
     "smoke:deploy": "node ops/plesk/smoke.cjs",
-    "diagnose:host": "node ops/plesk/diagnose.cjs"
+    "diagnose:host": "node ops/plesk/diagnose.cjs",
+    "check:static-assets": "node ops/sync-pwa-icons.cjs --check"
   }
 }

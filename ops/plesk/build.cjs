@@ -17,6 +17,7 @@ if (process.argv.includes("--install")) {
 run("backend", ["run", "prisma:generate"]);
 run("backend", ["run", "build"]);
 run("frontend", ["run", "build"], { APMS_SERVER_MODE: "unified" });
+require("../sync-pwa-icons.cjs");
 // Prune only in an explicit release build, so local development keeps its tools.
 if (process.env.APMS_PRUNE_DEV === "1") {
   run("backend", ["prune", "--omit=dev"]);

@@ -45,6 +45,21 @@ const realDb = process.argv.includes("--configured-db");
     const js = await fetch(base + asset[1]);
     assert.equal(js.status, 200);
     assert((await js.text()).length > 100);
+    assert.match(html, /rel="manifest"/);
+    const manifestResponse = await fetch(base + "/manifest.webmanifest");
+    assert.equal(manifestResponse.status, 200);
+    const manifest = await manifestResponse.json();
+    assert.equal(manifest.display, "standalone");
+    for (const size of [192, 512]) {
+      const icon = manifest.icons.find((item) => item.sizes === size + "x" + size);
+      assert(icon, "Missing install icon: " + size);
+      const response = await fetch(base + icon.src);
+      assert.equal(response.status, 200);
+      const bytes = Buffer.from(await response.arrayBuffer());
+      assert.equal(bytes.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+      assert.equal(bytes.readUInt32BE(16), size);
+      assert.equal(bytes.readUInt32BE(20), size);
+    }
     const protectedApi = await fetch(base + "/api/v1/produits", { headers: { Origin: "https://untrusted.example.invalid" } });
     assert.equal(protectedApi.status, 401);
     assert.equal(protectedApi.headers.get("access-control-allow-origin"), null);

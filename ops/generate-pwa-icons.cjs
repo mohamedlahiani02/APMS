@@ -15,5 +15,6 @@ const { createElement } = frontend('react');
       createElement('img', { src: artwork, alt: '', width: Math.round(size * 0.9), height: Math.round(size * 0.9 * 437 / 447) })), { width: size, height: size });
     await fs.writeFile(path.join(output, 'sia-' + size + '.png'), Buffer.from(await response.arrayBuffer()));
   }
+  require('./sync-pwa-icons.cjs');
   console.log('Packaged SIA installation icons at 180, 192 and 512 pixels.');
 })().catch(() => { console.error('PWA icon packaging failed.'); process.exitCode = 1; });
