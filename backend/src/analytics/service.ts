@@ -46,6 +46,8 @@ async function fetchKpiLines(
   month: number,
   scope: AnalyticsScope = {},
 ): Promise<KpiRow[]> {
+  const fiscal = await prisma.stock_years.findUnique({ where: { annee: year } });
+  if (fiscal?.needs_review) throw new ValidationException('L’ouverture de cette année doit être revalidée par un administrateur.');
   const result = await pool.query(
     "SELECT * FROM get_kpi_lines_for_month($1, $2)",
     [year, month],

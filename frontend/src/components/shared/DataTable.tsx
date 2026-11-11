@@ -5,8 +5,10 @@ import {
   useState,
   useCallback,
   useEffect,
+  isValidElement,
   type ReactNode,
 } from "react";
+import { downloadTable } from '@/lib/api/table-export';
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import ApiErrorBanner from "./ApiErrorBanner";
@@ -166,6 +168,13 @@ export function Pagination({
     </div>
   );
 }
+function exportText(value: ReactNode): string {
+  if (value == null || typeof value === 'boolean') return '';
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (Array.isArray(value)) return value.map(exportText).join('');
+  if (isValidElement<{ children?: ReactNode }>(value)) return exportText(value.props.children);
+  return '';
+}
 export function DataTable<T>({
   label,
   rows,
@@ -173,6 +182,7 @@ export function DataTable<T>({
   rowKey,
   total,
   state,
+  loadExportRows,
   loading = false,
   busy = false,
   error,
@@ -188,11 +198,31 @@ export function DataTable<T>({
     setSize: (s: number) => void;
     onSort: (s: string) => void;
   };
+  loadExportRows?: () => Promise<T[]>;
   loading?: boolean;
   busy?: boolean;
   error?: unknown;
   detail?: (r: T) => ReactNode;
 }) {
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+  const exportRows = async () => {
+    if (!loadExportRows) return;
+    setExporting(true); setExportError('');
+    try {
+      const selected = columns.filter(c => c.key !== 'actions');
+      const all = await loadExportRows();
+      await downloadTable(label, selected.map(c => c.label), all.map(row => selected.map(c => {
+        const numeric = c.numeric && c.sortValue ? c.sortValue(row) : null;
+        if (typeof numeric === 'number') return numeric;
+        const raw = row && typeof row === 'object' ? (row as Record<string, unknown>)[c.key] : undefined;
+        if (c.numeric && typeof raw === 'number') return raw;
+        const rendered = c.render(row);
+        return typeof rendered === 'number' ? rendered : exportText(rendered);
+      })));
+    } catch (error) { setExportError(error instanceof Error ? error.message : 'L’export a échoué.'); }
+    finally { setExporting(false); }
+  };
   const { page, size, setPage } = state;
   const lastPage = Math.max(0, Math.ceil(total / size) - 1);
   useEffect(() => {
@@ -204,6 +234,8 @@ export function DataTable<T>({
       aria-label={label}
       aria-busy={busy || loading}
     >
+      {loadExportRows && <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3"><span className="text-sm text-gray-600">{total} résultat(s) filtré(s)</span><Button variant="secondary" size="sm" loading={exporting} disabled={busy || loading || !!error || total === 0} onClick={exportRows}>Exporter Excel</Button></div>}
+      {exportError && <p role="alert" className="px-4 py-2 text-sm text-red-700">{exportError}</p>}
       <ApiErrorBanner error={error} />
       <div
         className="max-h-[65vh] overflow-auto"
@@ -379,6 +411,7 @@ export function ClientTable<T>({
       />
       <DataTable
         label={label}
+        loadExportRows={async () => filtered}
         rows={filtered.slice(page * state.size, (page + 1) * state.size)}
         columns={columns.map((c) => ({ ...c, sortable: !!c.sortValue }))}
         rowKey={rowKey}

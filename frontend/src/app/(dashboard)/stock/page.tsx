@@ -1,4 +1,5 @@
 "use client";
+import { collectAllPages } from "@/lib/api/table-export";
 import { useState, useEffect } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { listStock } from "@/features/stock/services/stockService";
@@ -11,6 +12,7 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { DataTable, useTableState } from "@/components/shared/DataTable";
 export default function StockPage() {
+  const [annee, setAnnee] = useState(Number(new Intl.DateTimeFormat('en', { timeZone: 'Africa/Tunis', year: 'numeric' }).format(new Date())));
   const table = useTableState("reference");
   const [term, setTerm] = useState(""),
     [search, setSearch] = useState(""),
@@ -26,6 +28,7 @@ export default function StockPage() {
   const query = useQuery({
     queryKey: [
       "stock",
+      annee,
       table.page,
       table.size,
       table.sortBy,
@@ -37,6 +40,7 @@ export default function StockPage() {
     ],
     queryFn: () =>
       listStock({
+        annee,
         page: table.page,
         size: table.size,
         sortBy: table.sortBy,
@@ -57,6 +61,7 @@ export default function StockPage() {
           lots.
         </p>
       </div>
+      <label className="flex items-center gap-2 text-sm">Année<input aria-label="Année du stock" type="number" min="1970" max="2200" value={annee} onChange={event => { setAnnee(Number(event.target.value)); table.resetPage(); }} className="w-28 rounded-md border px-3 py-2" /></label>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 items-end">
         <Input
           label="Produit"
@@ -121,6 +126,14 @@ export default function StockPage() {
         </Button>
       </div>
       <DataTable
+        loadExportRows={() => collectAllPages((exportPage, exportSize) => listStock({
+        sortBy: table.sortBy,
+        sortDirection: table.sortDirection,
+        search: search || undefined,
+        magasinId: magasinId || undefined,
+        familleId: familleId || undefined,
+        availability: (availability as "positive" | "zero") || undefined,
+       page: exportPage, size: exportSize }))}
         label="Stock"
         rows={query.data?.content ?? []}
         rowKey={(r) => r.produitId + r.magasinId}

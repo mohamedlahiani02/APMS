@@ -48,6 +48,7 @@ const ADMIN_MENU = [
   {
     section: "ADMINISTRATION",
     items: [
+      { href: "/stock-annuel", label: "Stock annuel", icon: Warehouse },
       { href: "/utilisateurs", label: "Utilisateurs", icon: UserCog },
       { href: "/audit", label: "Journal d’audit", icon: ScrollText },
     ],

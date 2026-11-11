@@ -18,7 +18,8 @@ export interface DrawInput {
 /** A vente_lignes row ready to persist (vente_id/id/timestamps added by the caller). */
 export interface DrawnLigne {
   produit_id: string;
-  source_type: "BL_LIGNE" | "STOCK_LEGACY";
+  source_type: "BL_LIGNE" | "STOCK_LEGACY" | "OPENING";
+  annual_opening_id?: string | null;
   bl_achat_ligne_id: string | null;
   stock_legacy_lot_id: string | null;
   qte_vendue: Prisma.Decimal;
@@ -43,16 +44,27 @@ const ZERO = new Prisma.Decimal(0);
  * quantity reaches that fallback (present even when fully covered there;
  * `depassement_stock` only distinguishes the oversell case).
  */
-export async function drawLine(tx: Tx, magasinId: string, input: DrawInput): Promise<DrawnLigne[]> {
+export async function drawLine(tx: Tx, magasinId: string, input: DrawInput, year = new Date().getFullYear()): Promise<DrawnLigne[]> {
   let remaining = input.qteVendue;
   const rows: DrawnLigne[] = [];
 
+  const fiscal = await tx.stock_years.findUnique({ where: { annee: year } });
+  const annual = fiscal && fiscal.mode !== 'LEGACY';
+  if (annual) {
+    const opening = await tx.annual_stock_opening.findUnique({ where: { annee_produit_id_magasin_id: { annee: year, produit_id: input.produitId, magasin_id: magasinId } } });
+    if (opening && opening.qte_restante.gt(0)) {
+      const quantity = Prisma.Decimal.min(remaining, opening.qte_restante);
+      await tx.annual_stock_opening.update({ where: { id: opening.id }, data: { qte_restante: { decrement: quantity } } });
+      rows.push({ produit_id: input.produitId, source_type: 'OPENING', annual_opening_id: opening.id, bl_achat_ligne_id: null, stock_legacy_lot_id: null, qte_vendue: quantity, prix_vente_ttc: round3(input.prixVenteTtc), prix_vente_total_ttc: round3(input.prixVenteTtc.times(quantity)), depassement_stock: false, qte_non_couverte: ZERO });
+      remaining = round3(remaining.minus(quantity));
+    }
+  }
   const sources = await tx.bl_achat_lignes.findMany({
     where: {
       produit_id: input.produitId,
       qte_restante: { gt: 0 },
       deleted_at: null,
-      bl_achats: { magasin_id: magasinId, deleted_at: null },
+      bl_achats: { magasin_id: magasinId, deleted_at: null, ...(annual ? { transaction_date: { gte: new Date(year + '-01-01'), lt: new Date((year + 1) + '-01-01') } } : { transaction_date: { lt: new Date((year + 1) + '-01-01') } }) },
     },
     include: { bl_achats: true },
     orderBy: [{ bl_achats: { transaction_date: "asc" } }, { bl_achats: { created_at: "asc" } }],
@@ -100,14 +112,11 @@ export async function drawLine(tx: Tx, magasinId: string, input: DrawInput): Pro
       });
     }
 
-    const lotQte = new Prisma.Decimal(lot.qte_disponible);
+    const lotQte = annual ? ZERO : new Prisma.Decimal(lot.qte_disponible);
     let deducted = Prisma.Decimal.min(remaining, lotQte);
     if (deducted.lt(ZERO)) deducted = ZERO;
 
-    await tx.stock_legacy_lots.update({
-      where: { id: lot.id },
-      data: { qte_disponible: round3(lotQte.minus(deducted)) },
-    });
+    if (!annual) await tx.stock_legacy_lots.update({ where: { id: lot.id }, data: { qte_disponible: round3(lotQte.minus(deducted)) } });
 
     const nonCouverte = round3(remaining.minus(deducted));
 
@@ -129,6 +138,7 @@ export async function drawLine(tx: Tx, magasinId: string, input: DrawInput): Pro
 
 export interface ReversibleLigne {
   source_type: string;
+  annual_opening_id?: string | null;
   qte_vendue: Prisma.Decimal.Value;
   qte_non_couverte: Prisma.Decimal.Value;
   bl_achat_ligne_id: string | null;
@@ -148,7 +158,9 @@ export async function reverseVenteLigne(tx: Tx, ligne: ReversibleLigne): Promise
   const deducted = qteVendue.minus(qteNonCouverte);
   if (deducted.lte(ZERO)) return;
 
-  if (ligne.source_type === "BL_LIGNE" && ligne.bl_achat_ligne_id) {
+  if (ligne.source_type === 'OPENING' && ligne.annual_opening_id) {
+    await tx.annual_stock_opening.update({ where: { id: ligne.annual_opening_id }, data: { qte_restante: { increment: round3(deducted) } } });
+  } else if (ligne.source_type === "BL_LIGNE" && ligne.bl_achat_ligne_id) {
     await tx.bl_achat_lignes.updateMany({
       where: { id: ligne.bl_achat_ligne_id },
       data: { qte_restante: { increment: round3(deducted) } },
