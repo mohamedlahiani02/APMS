@@ -1,4 +1,5 @@
 "use client";
+import { collectAllPages } from "@/lib/api/table-export";
 import {
   DataTable,
   ClientTable,
@@ -650,7 +651,7 @@ function VenteForm({
         ))}
         <p className="text-xs text-green-800">
           La quantité est prélevée automatiquement sur le stock disponible (BL
-          le plus ancien d&apos;abord, puis stock historique) — aucun lot à
+          stock d’ouverture puis achats de l’année, ou stock historique pour l’année initiale) — aucun lot à
           choisir. Un dépassement de stock ne bloque jamais la vente : il sera
           signalé après enregistrement.
         </p>
@@ -799,7 +800,7 @@ function TransactionDetail({
             key: "source",
             label: "Source",
             render: (r) =>
-              r.sourceType === "BL_LIGNE" ? "BL achat" : "Stock historique",
+              r.sourceType === "BL_LIGNE" ? "BL achat" : r.sourceType === "OPENING" ? "Stock d’ouverture" : "Stock historique",
           },
           {
             key: "quantity",
@@ -1183,7 +1184,7 @@ export default function TransactionsPage() {
           onClick={() => exportMutation.mutate()}
           loading={exportMutation.isPending}
         >
-          <Download size={16} /> Exporter Excel
+          <Download size={16} /> Exporter les lignes détaillées
         </Button>
         <p className="text-xs text-gray-500 max-w-lg">
           {exportScope === "all"
@@ -1194,6 +1195,16 @@ export default function TransactionsPage() {
       <ApiErrorBanner error={exportMutation.error} />
       {tab === "achats" ? (
         <DataTable
+        loadExportRows={() => collectAllPages((exportPage, exportSize) => listBlAchats({
+        sortBy: table.sortBy,
+        sortDirection: table.sortDirection,
+        search: search || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        magasinId: filterMagasinId || undefined,
+        fournisseurId: filterFournisseurId || undefined,
+        consumed: (consumed as "yes" | "no") || undefined,
+       page: exportPage, size: exportSize }))}
           label="BL achats"
           rows={blAchats}
           rowKey={(r) => r.id}
@@ -1273,6 +1284,15 @@ export default function TransactionsPage() {
         />
       ) : (
         <DataTable
+        loadExportRows={() => collectAllPages((exportPage, exportSize) => listVentes({
+        hasDepassement: hasDepassement ? hasDepassement === "true" : undefined,
+        sortBy: table.sortBy,
+        sortDirection: table.sortDirection,
+        search: search || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        magasinId: filterMagasinId || undefined,
+       page: exportPage, size: exportSize }))}
           label="Ventes"
           rows={ventes}
           rowKey={(r) => r.id}

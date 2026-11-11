@@ -63,6 +63,7 @@ async function drawAndPersistAll(
   venteId: string,
   magasinId: string,
   lignes: CreateVenteInput["lignes"],
+  year: number,
 ): Promise<{ persistedCount: number; anyDepassement: boolean }> {
   let persistedCount = 0;
   let anyDepassement = false;
@@ -73,7 +74,7 @@ async function drawAndPersistAll(
       produitId: l.produitId,
       qteVendue: round3(l.qteVendue),
       prixVenteTtc: round3(l.prixVenteTtc),
-    });
+    }, year);
     for (const row of rows) {
       await tx.vente_lignes.create({ data: { vente_id: venteId, ...row } });
       if (row.depassement_stock) anyDepassement = true;
@@ -126,6 +127,7 @@ export async function createVenteTx(
       vente.id,
       input.magasinId,
       input.lignes,
+      Number(input.venteDate.slice(0, 4)),
     );
 
     const summary =
@@ -200,6 +202,7 @@ export async function updateVenteTx(
       id,
       input.magasinId,
       input.lignes,
+      Number(input.venteDate.slice(0, 4)),
     );
 
     const summary =

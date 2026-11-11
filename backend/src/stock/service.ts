@@ -1,4 +1,5 @@
-import { pool } from "../db.js";
+import { ValidationException } from '../common/errors.js';
+import { pool, prisma } from "../db.js";
 import type { LookupQuery } from "../common/pagination.js";
 import type { StockQuery } from "./schemas.js";
 
@@ -44,6 +45,9 @@ export interface LegacyLotLookupItem {
 export async function listStock(
   query: StockQuery,
 ): Promise<{ content: StockItem[]; total: number }> {
+  const year = query.annee ?? Number(new Intl.DateTimeFormat('en', { timeZone: 'Africa/Tunis', year: 'numeric' }).format(new Date()));
+  const fiscal = await prisma.stock_years.findUnique({ where: { annee: year } });
+  if (!fiscal || fiscal.needs_review) throw new ValidationException('Année non ouverte ou ouverture à revalider.');
   const search = query.search ?? null;
   const magasinId = query.magasinId ?? null;
   const limit = query.size;
@@ -69,14 +73,17 @@ export async function listStock(
       FROM bl_achat_lignes bal
       JOIN bl_achats bl ON bl.id = bal.bl_achat_id
       WHERE bal.deleted_at IS NULL AND bl.deleted_at IS NULL
+        AND (extract(year FROM bl.transaction_date)=$7 OR extract(year FROM bl.transaction_date)<$7 AND NOT EXISTS(SELECT 1 FROM stock_years WHERE annee=$7 AND mode<>'LEGACY'))
       GROUP BY bl.magasin_id, bal.produit_id
     ),
     legacy_stock AS (
       SELECT magasin_id, produit_id,
              SUM(qte_disponible) AS qte,
              SUM(qte_disponible * cout_unitaire) AS valeur
-      FROM stock_legacy_lots
-      GROUP BY magasin_id, produit_id
+      FROM (
+        SELECT magasin_id,produit_id,qte_disponible,cout_unitaire FROM stock_legacy_lots WHERE NOT EXISTS(SELECT 1 FROM stock_years WHERE annee=$7 AND mode<>'LEGACY')
+        UNION ALL SELECT magasin_id,produit_id,qte_restante,cout_unitaire FROM annual_stock_opening WHERE annee=$7
+      ) annual_lots GROUP BY magasin_id, produit_id
     ),
     combined AS (
       SELECT COALESCE(b.magasin_id, l.magasin_id) AS magasin_id,
@@ -118,6 +125,7 @@ export async function listStock(
     offset,
     query.familleId ?? null,
     query.availability ?? null,
+    year,
   ]);
   // A window count has no row to travel with on an out-of-range page.
   // Fetch the first row only in that case to preserve truthful page metadata.
@@ -130,6 +138,7 @@ export async function listStock(
           0,
           query.familleId ?? null,
           query.availability ?? null,
+          year,
         ])
       : result;
   const total = countSource.rows[0]

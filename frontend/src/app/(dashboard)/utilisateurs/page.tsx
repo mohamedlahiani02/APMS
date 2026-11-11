@@ -1,4 +1,5 @@
 "use client";
+import { collectAllPages } from "@/lib/api/table-export";
 import { DataTable, useTableState } from "@/components/shared/DataTable";
 
 import {
@@ -473,6 +474,13 @@ export default function UtilisateursPage() {
         </Button>
       </div>
       <DataTable
+        loadExportRows={() => collectAllPages((exportPage, exportSize) => listUsers({
+        sortBy: table.sortBy,
+        sortDirection: table.sortDirection,
+        search: search || undefined,
+        role: (roleFilter as "ADMIN" | "SECRETAIRE") || undefined,
+        isActive: activeFilter ? activeFilter === "true" : undefined,
+       page: exportPage, size: exportSize }))}
         label="Utilisateurs"
         rows={users}
         rowKey={(r) => r.id}

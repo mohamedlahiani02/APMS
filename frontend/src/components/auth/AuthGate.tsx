@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 
-const ADMIN_PATHS = new Set(['/dashboard', '/bilan', '/stock', '/audit', '/utilisateurs']);
+const ADMIN_PATHS = new Set(['/dashboard', '/bilan', '/stock', '/stock-annuel', '/audit', '/utilisateurs']);
 
 const PUBLIC_PATHS = new Set<string>(['/login']);
 

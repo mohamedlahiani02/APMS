@@ -17,6 +17,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/magasins": "Magasins",
   "/bilan": "Bilan Annuel",
   "/utilisateurs": "Utilisateurs",
+  "/stock-annuel": "Stock annuel",
   "/stock": "Stock disponible",
   "/audit": "Journal d’audit",
 };

@@ -3,6 +3,7 @@ import type { StockItem, StockLegacyLotLookupItem } from "@/types";
 import type { Page, PageQuery } from "@/types/api";
 
 export interface StockListQuery extends PageQuery {
+  annee?: number;
   magasinId?: string;
   availability?: "positive" | "zero";
 }

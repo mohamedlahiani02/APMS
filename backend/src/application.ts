@@ -1,3 +1,4 @@
+import { registerAnnualStockRoutes } from './annual-stock/routes.js';
 import { buildApp, type AppOptions } from "./app.js";
 import { registerAuthRoutes } from "./auth/routes.js";
 import { registerUserRoutes } from "./users/routes.js";
@@ -27,6 +28,7 @@ export async function buildApplication(options: AppOptions = {}) {
   await app.register(registerAnalyticsRoutes, { prefix: "/api/v1" });
   await app.register(registerAuditRoutes, { prefix: "/api/v1" });
   await app.register(registerExportRoutes, { prefix: "/api/v1" });
+  await app.register(registerAnnualStockRoutes, { prefix: '/api/v1' });
   await app.ready();
   return app;
 }

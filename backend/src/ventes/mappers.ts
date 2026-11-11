@@ -13,7 +13,7 @@ export function toVenteLigneResponse(l: LigneWithProduit) {
     produitId: l.produit_id,
     produitReference: l.produits.reference,
     produitDesignation: l.produits.designation,
-    sourceType: l.source_type as "BL_LIGNE" | "STOCK_LEGACY",
+    sourceType: l.source_type as "BL_LIGNE" | "STOCK_LEGACY" | "OPENING",
     qteVendue: Number(l.qte_vendue),
     prixVenteTtc: Number(l.prix_vente_ttc),
     prixVenteTotalTtc: Number(l.prix_vente_total_ttc),

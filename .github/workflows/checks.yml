@@ -35,3 +35,33 @@ jobs:
         run: npm run check:startup && npm run check:static-assets && npm run smoke:deploy
       # Full integration tests require the restored local dataset. A sensitive
       # production dump must never be uploaded to this public repository/CI.
+
+  annual-stock:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: apms_features
+          POSTGRES_USER: apms_user
+          POSTGRES_PASSWORD: ci_fixture_only
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U apms_user -d apms_features"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://apms_user:ci_fixture_only@127.0.0.1:5433/apms_features?schema=public
+      JWT_SECRET: ci_only_synthetic_fixture_secret_min_32_chars
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: backend
+      - run: npm run prisma:generate && npm run prisma:deploy
+        working-directory: backend
+      - run: npx vitest run src/annual-stock/service.test.ts
+        working-directory: backend

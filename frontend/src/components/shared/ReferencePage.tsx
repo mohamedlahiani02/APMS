@@ -1,4 +1,5 @@
 "use client";
+import { collectAllPages } from "@/lib/api/table-export";
 import { useState, useEffect, type ReactNode } from "react";
 import {
   useQuery,
@@ -154,6 +155,13 @@ export default function ReferencePage<
         </Button>
       </div>
       <DataTable
+        loadExportRows={() => collectAllPages((exportPage, exportSize) => list({
+        sortBy: table.sortBy,
+        sortDirection: table.sortDirection,
+        search: search || undefined,
+        isActive: active ? active === "true" : undefined,
+        familleId: familleId || undefined,
+       page: exportPage, size: exportSize }))}
         label={title}
         rows={query.data?.content ?? []}
         total={query.data?.page.totalElements ?? 0}

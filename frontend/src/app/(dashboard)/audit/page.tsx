@@ -1,4 +1,5 @@
 "use client";
+import { collectAllPages } from "@/lib/api/table-export";
 import { useState, useEffect } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import {
@@ -248,6 +249,16 @@ export default function AuditPage() {
         </Button>
       </div>
       <DataTable
+        loadExportRows={() => collectAllPages((exportPage, exportSize) => listAudit({
+        sortBy: table.sortBy,
+        sortDirection: table.sortDirection,
+        entityType: entityType || undefined,
+        actorId: actorId || undefined,
+        action: action || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        search: search || undefined,
+       page: exportPage, size: exportSize }))}
         label="Journal d’audit"
         rows={query.data?.content ?? []}
         rowKey={(r) => r.id}

@@ -197,7 +197,7 @@ export interface VenteLigne {
   produitId: string;
   produitReference: string;
   produitDesignation: string;
-  sourceType: "BL_LIGNE" | "STOCK_LEGACY";
+  sourceType: "BL_LIGNE" | "STOCK_LEGACY" | "OPENING";
   qteVendue: number;
   prixVenteTtc: number;
   prixVenteTotalTtc: number;

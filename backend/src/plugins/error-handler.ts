@@ -16,6 +16,9 @@ export const errorHandlerPlugin: FastifyPluginAsync = fp(async (app) => {
     const traceId = request.traceId;
     const error = caught as Error & { statusCode?: number };
 
+    if (/YEAR_(?:NOT_OPEN|CLOSED|OPENING_REVIEW_REQUIRED|STOCK_SOURCE_MISMATCH)/.test(error.message)) {
+      return reply.status(409).send({ code: 'YEAR_NOT_WRITABLE', message: 'Année non ouverte, clôturée ou ouverture à revalider. Contactez un administrateur.', traceId });
+    }
     if (error instanceof DomainException) {
       request.log.warn(
         { code: error.code, traceId, context: error.context },

@@ -201,6 +201,10 @@ export async function updateBlAchatTx(
     });
     if (!current) throw new ResourceNotFoundException("BlAchat", id);
 
+    if (input.transactionDate && Number(input.transactionDate.slice(0, 4)) !== current.transaction_date.getUTCFullYear()) {
+      const linked = await tx.vente_lignes.count({ where: { bl_achat_ligne_id: { in: current.bl_achat_lignes.map(line => line.id) } } });
+      if (linked) throw new BlAchatHasVentesException('Impossible de déplacer dans une autre année un achat utilisé par une vente.');
+    }
     // Check drawn state FIRST, before any other change, when lignes replacement is requested.
     if (input.lignes !== undefined) {
       const hasDrawn = current.bl_achat_lignes.some(
